@@ -57,7 +57,9 @@ def _meta_span(label: str, value: str) -> str:
 
 def render_html(recipe: Recipe) -> str:
     meta_parts = [
-        _meta_span("Time", recipe.total_time),
+        _meta_span("Prep", recipe.prep_time),
+        _meta_span("Cook", recipe.cook_time),
+        _meta_span("Total", recipe.total_time),
         _meta_span("Yield", recipe.yields),
         _meta_span("Author", recipe.author),
     ]

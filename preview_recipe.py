@@ -71,7 +71,9 @@ def main() -> None:
 
     print(f"Title:       {recipe.title}")
     print(f"Author:      {recipe.author or '—'}")
-    print(f"Time:        {recipe.total_time or '—'}")
+    print(f"Prep:        {recipe.prep_time or '—'}")
+    print(f"Cook:        {recipe.cook_time or '—'}")
+    print(f"Total:       {recipe.total_time or '—'}")
     print(f"Yield:       {recipe.yields or '—'}")
     print(f"Tags:        {', '.join(recipe.tags) or '—'}")
     print(f"Ingredients: {len(recipe.ingredients)}")

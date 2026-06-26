@@ -82,6 +82,28 @@ class TestHtmlStructure:
         html = render_html(r)
         assert "8 servings" in html
 
+    def test_meta_prep_time_rendered(self):
+        r = _make_recipe()
+        r.prep_time = "15 min"
+        html = render_html(r)
+        assert "Prep" in html
+        assert "15 min" in html
+
+    def test_meta_cook_time_rendered(self):
+        r = _make_recipe()
+        r.cook_time = "40 min"
+        html = render_html(r)
+        assert "Cook" in html
+        assert "40 min" in html
+
+    def test_empty_prep_and_cook_not_rendered(self):
+        r = _make_recipe()
+        r.prep_time = ""
+        r.cook_time = ""
+        html = render_html(r)
+        assert "Prep:" not in html
+        assert "Cook:" not in html
+
     def test_meta_author_rendered(self):
         r = _make_recipe()
         r.author = "Julia Child"
