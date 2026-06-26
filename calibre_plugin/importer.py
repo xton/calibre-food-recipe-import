@@ -88,20 +88,14 @@ class RecipeImporter(QObject):
         except Exception as exc:
             return ImportResult(url, error=f"Unexpected error: {exc}")
 
-        # Check for duplicate by title
-        existing_ids = list(self.db.search(f'title:"={recipe.title}"'))
+        # Check for an existing entry with the same title.
+        existing_ids = set(self.db.search(f'title:"={recipe.title}"'))
         if existing_ids:
-            policy = self.duplicate_policy
-            if policy == "skip":
+            action = self._resolve_duplicate(recipe.title)
+            if action == "skip":
                 return ImportResult(url, recipe=recipe, skipped=True)
-            elif policy == "ask":
-                policy = self._ask_user(recipe.title)
-                if policy == "skip":
-                    return ImportResult(url, recipe=recipe, skipped=True)
-            # policy == 'replace': remove existing entries
-            if policy == "replace":
-                for bid in existing_ids:
-                    self.db.remove_books({bid})
+            if action == "replace":
+                self.db.remove_books(existing_ids)
 
         try:
             book_id = self._convert_and_add(recipe)
@@ -109,6 +103,12 @@ class RecipeImporter(QObject):
             return ImportResult(url, recipe=recipe, error=str(exc))
 
         return ImportResult(url, recipe=recipe, book_id=book_id)
+
+    def _resolve_duplicate(self, title: str) -> str:
+        """Decide how to handle an existing recipe: returns 'skip' or 'replace'."""
+        if self.duplicate_policy == "ask":
+            return self._ask_user(title)
+        return self.duplicate_policy   # already 'skip' or 'replace'
 
     def _ask_user(self, title: str) -> str:
         """Block the worker thread until the main thread answers."""
