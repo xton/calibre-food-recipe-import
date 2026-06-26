@@ -8,6 +8,7 @@ import re
 import urllib.request
 import urllib.error
 from dataclasses import dataclass, field
+from html.parser import HTMLParser as _HTMLParser
 
 
 _JSONLD_RE = re.compile(
@@ -74,6 +75,131 @@ def extract_recipe_jsonld(html: str) -> dict | None:
         if recipe:
             return recipe
     return None
+
+
+class _MicrodataParser(_HTMLParser):
+    """Extract Schema.org Recipe microdata (itemprop/itemscope) from HTML."""
+
+    _VOID_TAGS = frozenset({
+        "area", "base", "br", "col", "embed", "hr", "img", "input",
+        "link", "meta", "param", "source", "track", "wbr",
+    })
+    _LIST_PROPS = frozenset({"recipeIngredient", "recipeInstructions", "recipeCategory", "recipeCuisine"})
+    # Block-level tags that signal "we've left the instruction zone" in post-recipe mode
+    _STOP_TAGS = frozenset({"div", "section", "article", "aside", "nav",
+                            "h1", "h2", "h3", "h4", "h5", "h6"})
+
+    def __init__(self):
+        super().__init__(convert_charrefs=True)
+        self._in_recipe = False
+        self._recipe_depth = 0
+        self._depth = 0
+        self._current_prop: str | None = None
+        self._prop_depth = 0
+        self._text_buf: list[str] = []
+        self._data: dict = {}
+        # Post-recipe paragraph collection (fallback for sites that put
+        # instructions in the blog body rather than in microdata)
+        self._post_recipe = False
+        self._post_buf: list[str] = []
+        self._post_paragraphs: list[str] = []
+
+    def handle_starttag(self, tag, attrs):
+        if self._post_recipe:
+            if tag == "p":
+                self._flush_post_buf()
+            elif tag in self._STOP_TAGS:
+                self._flush_post_buf()
+                self._post_recipe = False
+            # Don't track depth in post-recipe mode
+            return
+
+        attrs = dict(attrs)
+        self._depth += 1
+
+        if not self._in_recipe:
+            if "schema.org/recipe" in attrs.get("itemtype", "").lower():
+                self._in_recipe = True
+                self._recipe_depth = self._depth
+        else:
+            itemprop = attrs.get("itemprop")
+            if itemprop and self._current_prop is None:
+                self._current_prop = itemprop
+                self._prop_depth = self._depth
+                self._text_buf = []
+                # Capture attribute-based values immediately (no text content needed)
+                if tag == "time":
+                    dt = attrs.get("datetime", "").strip()
+                    if dt:
+                        self._store(itemprop, dt)
+                        self._current_prop = None
+                elif tag == "img":
+                    src = attrs.get("src", "").strip()
+                    if src:
+                        self._store(itemprop, src)
+                        self._current_prop = None
+                elif tag == "meta":
+                    content = attrs.get("content", "").strip()
+                    if content:
+                        self._store(itemprop, content)
+                        self._current_prop = None
+
+        if tag in self._VOID_TAGS:
+            self._depth -= 1
+
+    def handle_endtag(self, tag):
+        if self._post_recipe:
+            if tag == "p":
+                self._flush_post_buf()
+            return
+
+        if not self._in_recipe:
+            return
+        if self._depth == self._recipe_depth:
+            self._in_recipe = False
+            self._post_recipe = True  # start collecting post-recipe paragraphs
+        if self._current_prop is not None and self._depth <= self._prop_depth:
+            text = "".join(self._text_buf).strip()
+            if text:
+                self._store(self._current_prop, text)
+            self._current_prop = None
+            self._text_buf = []
+        self._depth -= 1
+
+    def handle_data(self, data):
+        if self._post_recipe:
+            self._post_buf.append(data)
+            return
+        if self._in_recipe and self._current_prop is not None:
+            self._text_buf.append(data)
+
+    def _flush_post_buf(self) -> None:
+        text = "".join(self._post_buf).strip()
+        if text:
+            self._post_paragraphs.append(text)
+        self._post_buf = []
+
+    def _store(self, prop: str, value: str) -> None:
+        if prop in self._LIST_PROPS:
+            self._data.setdefault(prop, []).append(value)
+        elif prop not in self._data:
+            self._data[prop] = value
+
+    def get_result(self) -> dict | None:
+        if not self._data.get("name"):
+            return None
+        if not self._data.get("recipeInstructions") and self._post_paragraphs:
+            result = dict(self._data)
+            result["recipeInstructions"] = list(self._post_paragraphs)
+            return result
+        return self._data
+
+
+def extract_recipe_microdata(html: str) -> dict | None:
+    """Return the first Schema.org Recipe found as microdata, or None."""
+    parser = _MicrodataParser()
+    parser.feed(html)
+    return parser.get_result()
 
 
 def _first(value):
@@ -225,13 +351,41 @@ class Recipe:
         )
 
 
+def _recipe_from_microdata(raw: dict, source_url: str) -> "Recipe":
+    """Build a Recipe from microdata dict, handling non-ISO duration strings."""
+    def _get_time(key: str) -> str:
+        v = raw.get(key, "")
+        if not v:
+            return ""
+        formatted = _format_duration(v)
+        return formatted if formatted else v
+
+    return Recipe(
+        source_url=source_url,
+        title=_scalar(raw.get("name")) or "Untitled Recipe",
+        description=_scalar(raw.get("description")),
+        author=_author_name(raw.get("author")),
+        image_url=_image_url(raw.get("image")),
+        yields=_scalar(raw.get("recipeYield")),
+        total_time=_get_time("totalTime"),
+        prep_time=_get_time("prepTime"),
+        cook_time=_get_time("cookTime"),
+        ingredients=_list_of_strings(raw.get("recipeIngredient")),
+        instructions=_list_of_strings(raw.get("recipeInstructions")),
+        tags=_tags_from_recipe(raw),
+    )
+
+
 def scrape(url: str) -> Recipe:
     """Fetch *url* and return a Recipe, or raise RecipeExtractionError."""
     html = fetch_html(url)
     raw = extract_recipe_jsonld(html)
-    if raw is None:
-        raise RecipeExtractionError(
-            f"No Schema.org Recipe found in the page at {url}.\n"
-            "The site may not embed structured data, or may block automated fetching."
-        )
-    return Recipe.from_jsonld(raw, url)
+    if raw is not None:
+        return Recipe.from_jsonld(raw, url)
+    raw = extract_recipe_microdata(html)
+    if raw is not None:
+        return _recipe_from_microdata(raw, url)
+    raise RecipeExtractionError(
+        f"No Schema.org Recipe found in the page at {url}.\n"
+        "The site may not embed structured data, or may block automated fetching."
+    )
