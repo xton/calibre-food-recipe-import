@@ -190,8 +190,6 @@ class RecipeImporter(QObject):
             ]
             if recipe.author:
                 cmd += ["--authors", recipe.author]
-            if cover_path:
-                cmd += ["--cover", cover_path]
 
             self.progress.emit(f"Converting '{recipe.title}' to EPUB …")
             proc = subprocess.run(
