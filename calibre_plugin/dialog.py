@@ -165,6 +165,7 @@ class ImportRecipesDialog(QDialog):
 
         duplicate_policy = self._dup_combo.currentData()
         self._import_btn.setEnabled(False)
+        self._had_errors = False
         self._log.clear()
         self._log_msg(f"Starting import of {len(urls)} URL(s) …\n")
 
@@ -203,6 +204,7 @@ class ImportRecipesDialog(QDialog):
     @pyqtSlot(object)
     def _on_result(self, result: ImportResult):
         if result.error:
+            self._had_errors = True
             self._log_msg(f"✗ FAILED — {result.url}\n  {result.error}\n")
         elif result.skipped:
             label = "cancelled at preview" if result.preview_cancelled else "duplicate"
@@ -225,6 +227,9 @@ class ImportRecipesDialog(QDialog):
         self._thread = None
         self._worker = None
         self._import_btn.setEnabled(True)
+        if not self._had_errors:
+            self.accept()
+            return
         self._log_msg("\nDone.")
         # Trigger a full GUI refresh so new books appear immediately
         try:
