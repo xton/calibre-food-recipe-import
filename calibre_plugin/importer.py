@@ -187,8 +187,6 @@ class RecipeImporter(QObject):
                 epub_path,
                 "--title", recipe.title,
                 "--no-default-epub-cover",
-                "--chapter", "/",          # disable auto chapter-break detection
-                "--chapter-mark", "none",  # no inserted page breaks
             ]
             if recipe.author:
                 cmd += ["--authors", recipe.author]

@@ -18,7 +18,7 @@ body {
     color: #222;
 }
 h1 { font-size: 1.8em; margin-bottom: 0.2em; }
-h2 { font-size: 1em; text-transform: uppercase; letter-spacing: 0.05em; page-break-before: avoid; }
+.section { font-size: 1em; font-weight: bold; text-transform: uppercase; letter-spacing: 0.05em; margin: 1.2em 0 0.4em; }
 .meta { color: #666; font-size: 0.9em; margin-bottom: 1.5em; }
 .meta span { margin-right: 1.5em; }
 ul { padding-left: 1.4em; }
@@ -73,11 +73,11 @@ def render_html(recipe: Recipe) -> str:
   {cover_img}
   <h1>{_e(recipe.title)}</h1>
   <div class="meta">{meta_html}</div>
-  <h2>Ingredients</h2>
+  <p class="section">Ingredients</p>
   <ul>
 {ingredients_html}
   </ul>
-  <h2>Instructions</h2>
+  <p class="section">Instructions</p>
   <ol>
 {instructions_html}
   </ol>
