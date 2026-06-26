@@ -46,7 +46,7 @@ def _find_recipe_in_obj(obj) -> Optional[dict]:
         t = obj.get("@type", "")
         # @type can be a string or a list
         types = t if isinstance(t, list) else [t]
-        if any(str(x).lower() in ("recipe",) for x in types):
+        if any(str(x).lower() == "recipe" for x in types):
             return obj
         # search nested @graph arrays
         if "@graph" in obj:
