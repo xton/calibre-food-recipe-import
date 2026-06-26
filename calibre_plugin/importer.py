@@ -8,7 +8,7 @@ import subprocess
 import tempfile
 import urllib.request
 
-from PyQt5.Qt import QMutex, QObject, QWaitCondition, pyqtSignal
+from PyQt5.Qt import QMutex, QMutexLocker, QObject, QWaitCondition, pyqtSignal
 
 from calibre.ebooks.metadata.book.base import Metadata
 
@@ -57,17 +57,15 @@ class RecipeImporter(QObject):
     def cancel(self):
         self._cancelled = True
         # Unblock any waiting ask_duplicate
-        self._mutex.lock()
-        self._dup_answer = "skip"
-        self._wait.wakeAll()
-        self._mutex.unlock()
+        with QMutexLocker(self._mutex):
+            self._dup_answer = "skip"
+            self._wait.wakeAll()
 
     def answer_duplicate(self, answer: str):
         """Called from the main thread after ask_duplicate is emitted."""
-        self._mutex.lock()
-        self._dup_answer = answer
-        self._wait.wakeAll()
-        self._mutex.unlock()
+        with QMutexLocker(self._mutex):
+            self._dup_answer = answer
+            self._wait.wakeAll()
 
     def run(self):
         for url in self.urls:
@@ -112,14 +110,12 @@ class RecipeImporter(QObject):
 
     def _ask_user(self, title: str) -> str:
         """Block the worker thread until the main thread answers."""
-        self._mutex.lock()
-        self._dup_answer = None
-        self.ask_duplicate.emit(title)
-        while self._dup_answer is None:
-            self._wait.wait(self._mutex)
-        answer = self._dup_answer
-        self._mutex.unlock()
-        return answer
+        with QMutexLocker(self._mutex):
+            self._dup_answer = None
+            self.ask_duplicate.emit(title)
+            while self._dup_answer is None:
+                self._wait.wait(self._mutex)
+            return self._dup_answer
 
     def _convert_and_add(self, recipe: Recipe) -> int:
         with tempfile.TemporaryDirectory(prefix="calibre_recipe_") as tmpdir:
