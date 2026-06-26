@@ -290,7 +290,7 @@ class TestTagsFromRecipe:
 
 class TestRecipe:
     def _make(self, **kwargs) -> Recipe:
-        return Recipe(_minimal_raw(**kwargs), "https://example.com/recipe")
+        return Recipe.from_jsonld(_minimal_raw(**kwargs), "https://example.com/recipe")
 
     def test_defaults(self):
         r = self._make()
@@ -311,7 +311,7 @@ class TestRecipe:
             recipeCuisine="Italian",
             keywords="pasta, easy",
         )
-        r = Recipe(raw, "https://example.com/recipe")
+        r = Recipe.from_jsonld(raw, "https://example.com/recipe")
         assert r.author == "Chef A"
         assert r.image_url == "https://img.com/photo.jpg"
         assert r.total_time == "1 hr 15 min"
@@ -323,7 +323,7 @@ class TestRecipe:
     def test_missing_name_fallback(self):
         raw = _minimal_raw()
         del raw["name"]
-        r = Recipe(raw, "https://example.com/recipe")
+        r = Recipe.from_jsonld(raw, "https://example.com/recipe")
         assert r.title == "Untitled Recipe"
 
     def test_ingredients_and_instructions_parsed(self):

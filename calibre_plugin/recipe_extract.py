@@ -7,6 +7,7 @@ import json
 import re
 import urllib.request
 import urllib.error
+from dataclasses import dataclass, field
 from typing import Optional
 
 
@@ -179,25 +180,50 @@ def _tags_from_recipe(raw: dict) -> list[str]:
     return result
 
 
+@dataclass(frozen=True, repr=False)
 class Recipe:
-    """Structured recipe data extracted from a Schema.org JSON-LD block."""
+    """Structured recipe data extracted from a Schema.org JSON-LD block.
 
-    def __init__(self, raw: dict, source_url: str):
-        self.source_url = source_url
-        self.title = _scalar(raw.get("name")) or "Untitled Recipe"
-        self.description = _scalar(raw.get("description"))
-        self.author = _author_name(raw.get("author"))
-        self.image_url = _image_url(raw.get("image"))
-        self.yields = _scalar(raw.get("recipeYield"))
-        self.total_time = _format_duration(raw.get("totalTime", ""))
-        self.prep_time = _format_duration(raw.get("prepTime", ""))
-        self.cook_time = _format_duration(raw.get("cookTime", ""))
-        self.ingredients: list[str] = _list_of_strings(raw.get("recipeIngredient"))
-        self.instructions: list[str] = _list_of_strings(raw.get("recipeInstructions"))
-        self.tags: list[str] = _tags_from_recipe(raw)
+    Immutable: build one with Recipe.from_jsonld(raw, url), which keeps the
+    JSON-LD parsing separate from the plain data container.
+    """
+
+    source_url: str
+    title: str
+    description: str = ""
+    author: str = ""
+    image_url: str = ""
+    yields: str = ""
+    total_time: str = ""
+    prep_time: str = ""
+    cook_time: str = ""
+    ingredients: list[str] = field(default_factory=list)
+    instructions: list[str] = field(default_factory=list)
+    tags: list[str] = field(default_factory=list)
+
+    @classmethod
+    def from_jsonld(cls, raw: dict, source_url: str) -> "Recipe":
+        """Build a Recipe from a decoded Schema.org Recipe JSON-LD dict."""
+        return cls(
+            source_url=source_url,
+            title=_scalar(raw.get("name")) or "Untitled Recipe",
+            description=_scalar(raw.get("description")),
+            author=_author_name(raw.get("author")),
+            image_url=_image_url(raw.get("image")),
+            yields=_scalar(raw.get("recipeYield")),
+            total_time=_format_duration(raw.get("totalTime", "")),
+            prep_time=_format_duration(raw.get("prepTime", "")),
+            cook_time=_format_duration(raw.get("cookTime", "")),
+            ingredients=_list_of_strings(raw.get("recipeIngredient")),
+            instructions=_list_of_strings(raw.get("recipeInstructions")),
+            tags=_tags_from_recipe(raw),
+        )
 
     def __repr__(self):
-        return f"<Recipe title={self.title!r} ingredients={len(self.ingredients)} steps={len(self.instructions)}>"
+        return (
+            f"<Recipe title={self.title!r} "
+            f"ingredients={len(self.ingredients)} steps={len(self.instructions)}>"
+        )
 
 
 def scrape(url: str) -> Recipe:
@@ -209,4 +235,4 @@ def scrape(url: str) -> Recipe:
             f"No Schema.org Recipe found in the page at {url}.\n"
             "The site may not embed structured data, or may block automated fetching."
         )
-    return Recipe(raw, url)
+    return Recipe.from_jsonld(raw, url)

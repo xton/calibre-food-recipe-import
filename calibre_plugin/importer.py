@@ -7,6 +7,8 @@ import os
 import subprocess
 import tempfile
 import urllib.request
+from dataclasses import dataclass
+from typing import Optional
 
 from PyQt5.Qt import QMutex, QMutexLocker, QObject, QWaitCondition, pyqtSignal
 
@@ -16,13 +18,13 @@ from .recipe_extract import Recipe, RecipeExtractionError, scrape
 from .html_template import render_html
 
 
+@dataclass
 class ImportResult:
-    def __init__(self, url: str, recipe=None, book_id=None, error=None, skipped=False):
-        self.url = url
-        self.recipe = recipe
-        self.book_id = book_id
-        self.error = error          # str if failed
-        self.skipped = skipped      # True if user chose skip on duplicate
+    url: str
+    recipe: Optional[Recipe] = None
+    book_id: Optional[int] = None
+    error: Optional[str] = None      # set if the import failed
+    skipped: bool = False            # True if user chose skip on duplicate
 
 
 class RecipeImporter(QObject):

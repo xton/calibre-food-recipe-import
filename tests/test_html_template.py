@@ -1,4 +1,5 @@
 import re
+from dataclasses import replace
 
 import pytest
 
@@ -6,8 +7,16 @@ from calibre_plugin.recipe_extract import Recipe
 from calibre_plugin.html_template import render_html
 
 
+# Recipe fields that can be set directly (rather than via JSON-LD input).
+_DIRECT_FIELDS = (
+    "source_url", "author", "image_url", "yields",
+    "total_time", "prep_time", "cook_time",
+)
+
+
 def _make_recipe(**kwargs) -> Recipe:
-    base = {
+    overrides = {k: kwargs.pop(k) for k in list(kwargs) if k in _DIRECT_FIELDS}
+    raw = {
         "@context": "https://schema.org",
         "@type": "Recipe",
         "name": kwargs.pop("name", "Chocolate Cake"),
@@ -17,8 +26,10 @@ def _make_recipe(**kwargs) -> Recipe:
             for s in kwargs.pop("steps", ["Mix.", "Bake."])
         ],
     }
-    base.update(kwargs)
-    return Recipe(base, kwargs.pop("source_url", "https://example.com/cake"))
+    raw.update(kwargs)  # any remaining JSON-LD-shaped keys
+    source_url = overrides.pop("source_url", "https://example.com/cake")
+    recipe = Recipe.from_jsonld(raw, source_url)
+    return replace(recipe, **overrides) if overrides else recipe
 
 
 # ---------------------------------------------------------------------------
@@ -59,62 +70,43 @@ class TestHtmlStructure:
         assert "https://example.com/cake" in html
 
     def test_cover_image_rendered(self):
-        r = _make_recipe()
-        r.image_url = "https://img.example.com/cake.jpg"
-        html = render_html(r)
+        html = render_html(_make_recipe(image_url="https://img.example.com/cake.jpg"))
         assert 'src="https://img.example.com/cake.jpg"' in html
 
     def test_no_image_url_no_img_tag(self):
-        r = _make_recipe()
-        r.image_url = ""
-        html = render_html(r)
+        html = render_html(_make_recipe(image_url=""))
         assert "<img" not in html
 
     def test_meta_time_rendered(self):
-        r = _make_recipe()
-        r.total_time = "45 min"
-        html = render_html(r)
+        html = render_html(_make_recipe(total_time="45 min"))
         assert "45 min" in html
 
     def test_meta_yield_rendered(self):
-        r = _make_recipe()
-        r.yields = "8 servings"
-        html = render_html(r)
+        html = render_html(_make_recipe(yields="8 servings"))
         assert "8 servings" in html
 
     def test_meta_prep_time_rendered(self):
-        r = _make_recipe()
-        r.prep_time = "15 min"
-        html = render_html(r)
+        html = render_html(_make_recipe(prep_time="15 min"))
         assert "Prep" in html
         assert "15 min" in html
 
     def test_meta_cook_time_rendered(self):
-        r = _make_recipe()
-        r.cook_time = "40 min"
-        html = render_html(r)
+        html = render_html(_make_recipe(cook_time="40 min"))
         assert "Cook" in html
         assert "40 min" in html
 
     def test_empty_prep_and_cook_not_rendered(self):
-        r = _make_recipe()
-        r.prep_time = ""
-        r.cook_time = ""
-        html = render_html(r)
+        html = render_html(_make_recipe(prep_time="", cook_time=""))
         assert "Prep:" not in html
         assert "Cook:" not in html
 
     def test_meta_author_rendered(self):
-        r = _make_recipe()
-        r.author = "Julia Child"
-        html = render_html(r)
+        html = render_html(_make_recipe(author="Julia Child"))
         assert "Julia Child" in html
 
     def test_empty_time_not_rendered(self):
-        r = _make_recipe()
-        r.total_time = ""
-        html = render_html(r)
-        assert "Time:" not in html
+        html = render_html(_make_recipe(total_time=""))
+        assert "Total:" not in html
 
 
 # ---------------------------------------------------------------------------
@@ -142,23 +134,13 @@ class TestHtmlEscaping:
         assert "&quot;salt&quot;" in html
 
     def test_source_url_escaped(self):
-        r = Recipe(
-            {
-                "@type": "Recipe",
-                "name": "Test",
-                "recipeIngredient": [],
-                "recipeInstructions": [],
-            },
-            'https://example.com/recipe?a=1&b=2',
-        )
+        r = _make_recipe(source_url="https://example.com/recipe?a=1&b=2")
         html = render_html(r)
         # Raw & must not appear in href attribute
         assert 'href="https://example.com/recipe?a=1&amp;b=2"' in html
 
     def test_author_escaped(self):
-        r = _make_recipe()
-        r.author = "Chef <Evil>"
-        html = render_html(r)
+        html = render_html(_make_recipe(author="Chef <Evil>"))
         assert "<Evil>" not in html
         assert "&lt;Evil&gt;" in html
 
