@@ -4,7 +4,9 @@ Runs in a worker thread; communicates back via Qt signals.
 """
 
 import os
+import shutil
 import subprocess
+import sys
 import tempfile
 import urllib.request
 from dataclasses import dataclass
@@ -143,6 +145,17 @@ class RecipeImporter(QObject):
                 self._wait.wait(self._mutex)
             return self._preview_answer
 
+    @staticmethod
+    def _find_ebook_convert() -> str:
+        """Locate ebook-convert: PATH first, then beside sys.executable (Calibre app bundle)."""
+        found = shutil.which("ebook-convert")
+        if found:
+            return found
+        candidate = os.path.join(os.path.dirname(os.path.abspath(sys.executable)), "ebook-convert")
+        if os.path.isfile(candidate):
+            return candidate
+        return "ebook-convert"  # let subprocess raise a clear error
+
     def _convert_and_add(self, recipe: Recipe) -> int:
         with tempfile.TemporaryDirectory(prefix="calibre_recipe_") as tmpdir:
             html_path = os.path.join(tmpdir, "recipe.html")
@@ -168,7 +181,7 @@ class RecipeImporter(QObject):
 
             # ebook-convert: HTML → EPUB
             cmd = [
-                "ebook-convert",
+                self._find_ebook_convert(),
                 html_path,
                 epub_path,
                 "--title", recipe.title,
