@@ -444,3 +444,57 @@ class TestExtractRecipeMicrodata:
         assert raw["totalTime"] == "2 hours"
         assert len(raw["recipeIngredient"]) == 2
         assert raw["recipeIngredient"][0] == "2 cups flour"
+
+    def test_post_recipe_paragraphs_used_as_instructions(self):
+        """Instructions in <p> tags after the recipe block are collected as fallback."""
+        html = (
+            '<div itemscope itemtype="https://schema.org/Recipe">'
+            '<h3 itemprop="name">Simple Cake</h3>'
+            '<li itemprop="recipeIngredient">2 cups flour</li>'
+            '</div>'
+            '<p>Mix the flour.</p>'
+            '<p>Bake at 350F for 30 minutes.</p>'
+            '<div class="sidebar">unrelated</div>'
+        )
+        raw = extract_recipe_microdata(html)
+        assert raw is not None
+        assert raw["recipeInstructions"] == ["Mix the flour.", "Bake at 350F for 30 minutes."]
+
+    def test_microdata_instructions_take_precedence_over_post_recipe(self):
+        """If microdata has recipeInstructions, post-recipe paragraphs are ignored."""
+        html = (
+            '<div itemscope itemtype="https://schema.org/Recipe">'
+            '<h3 itemprop="name">Cake</h3>'
+            '<li itemprop="recipeInstructions">Mix.</li>'
+            '</div>'
+            '<p>This should be ignored.</p>'
+        )
+        raw = extract_recipe_microdata(html)
+        assert raw["recipeInstructions"] == ["Mix."]
+
+    def test_post_recipe_stops_at_div(self):
+        """Post-recipe collection stops when a <div> is encountered."""
+        html = (
+            '<div itemscope itemtype="https://schema.org/Recipe">'
+            '<h3 itemprop="name">Cake</h3>'
+            '</div>'
+            '<p>Step one.</p>'
+            '<div><p>This is in a sidebar, not an instruction.</p></div>'
+        )
+        raw = extract_recipe_microdata(html)
+        assert raw["recipeInstructions"] == ["Step one."]
+
+    def test_post_recipe_bare_text_before_first_p(self):
+        """Text before the first explicit </p> is captured (handles Smitten Kitchen's
+        malformed first step that has no opening <p> tag)."""
+        html = (
+            '<div itemscope itemtype="https://schema.org/Recipe">'
+            '<h3 itemprop="name">Cake</h3>'
+            '</div>'
+            '<strong>Heat oven:</strong> To 350F.</p>'
+            '<p>Mix ingredients.</p>'
+            '<div class="sidebar">stop here</div>'
+        )
+        raw = extract_recipe_microdata(html)
+        assert raw["recipeInstructions"][0] == "Heat oven: To 350F."
+        assert raw["recipeInstructions"][1] == "Mix ingredients."

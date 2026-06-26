@@ -85,6 +85,9 @@ class _MicrodataParser(_HTMLParser):
         "link", "meta", "param", "source", "track", "wbr",
     })
     _LIST_PROPS = frozenset({"recipeIngredient", "recipeInstructions", "recipeCategory", "recipeCuisine"})
+    # Block-level tags that signal "we've left the instruction zone" in post-recipe mode
+    _STOP_TAGS = frozenset({"div", "section", "article", "aside", "nav",
+                            "h1", "h2", "h3", "h4", "h5", "h6"})
 
     def __init__(self):
         super().__init__(convert_charrefs=True)
@@ -95,8 +98,22 @@ class _MicrodataParser(_HTMLParser):
         self._prop_depth = 0
         self._text_buf: list[str] = []
         self._data: dict = {}
+        # Post-recipe paragraph collection (fallback for sites that put
+        # instructions in the blog body rather than in microdata)
+        self._post_recipe = False
+        self._post_buf: list[str] = []
+        self._post_paragraphs: list[str] = []
 
     def handle_starttag(self, tag, attrs):
+        if self._post_recipe:
+            if tag == "p":
+                self._flush_post_buf()
+            elif tag in self._STOP_TAGS:
+                self._flush_post_buf()
+                self._post_recipe = False
+            # Don't track depth in post-recipe mode
+            return
+
         attrs = dict(attrs)
         self._depth += 1
 
@@ -131,10 +148,16 @@ class _MicrodataParser(_HTMLParser):
             self._depth -= 1
 
     def handle_endtag(self, tag):
+        if self._post_recipe:
+            if tag == "p":
+                self._flush_post_buf()
+            return
+
         if not self._in_recipe:
             return
         if self._depth == self._recipe_depth:
             self._in_recipe = False
+            self._post_recipe = True  # start collecting post-recipe paragraphs
         if self._current_prop is not None and self._depth <= self._prop_depth:
             text = "".join(self._text_buf).strip()
             if text:
@@ -144,8 +167,17 @@ class _MicrodataParser(_HTMLParser):
         self._depth -= 1
 
     def handle_data(self, data):
+        if self._post_recipe:
+            self._post_buf.append(data)
+            return
         if self._in_recipe and self._current_prop is not None:
             self._text_buf.append(data)
+
+    def _flush_post_buf(self) -> None:
+        text = "".join(self._post_buf).strip()
+        if text:
+            self._post_paragraphs.append(text)
+        self._post_buf = []
 
     def _store(self, prop: str, value: str) -> None:
         if prop in self._LIST_PROPS:
@@ -154,7 +186,13 @@ class _MicrodataParser(_HTMLParser):
             self._data[prop] = value
 
     def get_result(self) -> dict | None:
-        return self._data if self._data.get("name") else None
+        if not self._data.get("name"):
+            return None
+        if not self._data.get("recipeInstructions") and self._post_paragraphs:
+            result = dict(self._data)
+            result["recipeInstructions"] = list(self._post_paragraphs)
+            return result
+        return self._data
 
 
 def extract_recipe_microdata(html: str) -> dict | None:
