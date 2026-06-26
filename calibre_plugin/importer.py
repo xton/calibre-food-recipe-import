@@ -209,13 +209,13 @@ class RecipeImporter(QObject):
             # Build Calibre Metadata
             mi = Metadata(recipe.title)
             if recipe.author:
-                mi.set_field("authors", [recipe.author])
+                mi.authors = [recipe.author]
             if recipe.tags:
-                mi.set_field("tags", recipe.tags)
+                mi.tags = recipe.tags
             comments = f'<p>Source: <a href="{recipe.source_url}">{recipe.source_url}</a></p>'
             if recipe.description:
                 comments = f"<p>{recipe.description}</p>" + comments
-            mi.set_field("comments", comments)
+            mi.comments = comments
 
             self.progress.emit(f"Adding '{recipe.title}' to library …")
             book_id = self.db.create_book_entry(mi)
