@@ -48,11 +48,8 @@ def _find_recipe_in_obj(obj) -> Optional[dict]:
         types = t if isinstance(t, list) else [t]
         if any(str(x).lower() == "recipe" for x in types):
             return obj
-        # search nested @graph arrays
-        if "@graph" in obj:
-            result = _find_recipe_in_obj(obj["@graph"])
-            if result:
-                return result
+        # Recurse into every value; this naturally covers @graph arrays,
+        # mainEntity, and any other nested structure.
         for v in obj.values():
             result = _find_recipe_in_obj(v)
             if result:
