@@ -209,7 +209,7 @@ class RecipeImporter(QObject):
 
             # Build Calibre Metadata
             mi = Metadata(recipe.title)
-            mi.authors = [recipe.author or prefs['default_author']]
+            mi.authors = [prefs['default_author']]
             if recipe.tags:
                 mi.tags = recipe.tags
             comments = f'<p>Source: <a href="{recipe.source_url}">{recipe.source_url}</a></p>'
