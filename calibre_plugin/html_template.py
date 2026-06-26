@@ -56,10 +56,6 @@ def render_html(recipe: Recipe) -> str:
         f"<li>{_e(step)}</li>" for step in recipe.instructions
     )
 
-    cover_img = ""
-    if recipe.image_url:
-        cover_img = f'<img src="{_e(recipe.image_url)}" alt="{_e(recipe.title)}" style="max-width:100%;margin-bottom:1em;" />'
-
     return f"""\
 <?xml version="1.0" encoding="utf-8"?>
 <!DOCTYPE html>
@@ -70,7 +66,6 @@ def render_html(recipe: Recipe) -> str:
   <style>{_CSS}</style>
 </head>
 <body>
-  {cover_img}
   <h1>{_e(recipe.title)}</h1>
   <div class="meta">{meta_html}</div>
   <p class="section">Ingredients</p>

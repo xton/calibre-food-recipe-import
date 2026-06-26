@@ -64,12 +64,9 @@ class TestHtmlStructure:
         html = render_html(_make_recipe())
         assert "https://example.com/cake" in html
 
-    def test_cover_image_rendered(self):
+    def test_no_image_in_body(self):
+        # Image is passed to ebook-convert as cover; it must not appear in the HTML body
         html = render_html(_make_recipe(image_url="https://img.example.com/cake.jpg"))
-        assert 'src="https://img.example.com/cake.jpg"' in html
-
-    def test_no_image_url_no_img_tag(self):
-        html = render_html(_make_recipe(image_url=""))
         assert "<img" not in html
 
     def test_meta_time_rendered(self):
