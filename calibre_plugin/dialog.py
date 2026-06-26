@@ -4,13 +4,41 @@ ImportRecipesDialog — the main UI shown when the toolbar button is clicked.
 
 from PyQt5.Qt import (
     QComboBox, QDialog, QDialogButtonBox, QGroupBox, QHBoxLayout,
-    QLineEdit, QMessageBox, QPushButton, QScrollArea, QTextEdit,
-    QThread, QVBoxLayout, QWidget, Qt, pyqtSlot,
+    QLabel, QLineEdit, QMessageBox, QPushButton, QScrollArea, QSizePolicy,
+    QTextBrowser, QTextEdit, QThread, QVBoxLayout, QWidget, Qt, pyqtSlot,
 )
 
 from calibre.gui2 import error_dialog, warning_dialog
 
+from .html_template import render_html
 from .importer import RecipeImporter, ImportResult
+
+
+class RecipePreviewDialog(QDialog):
+    """Shows the rendered recipe HTML and lets the user confirm or cancel."""
+
+    def __init__(self, recipe, parent=None):
+        super().__init__(parent)
+        self.setWindowTitle(f"Preview: {recipe.title}")
+        self.setMinimumSize(680, 560)
+
+        layout = QVBoxLayout(self)
+
+        label = QLabel("Review the recipe below, then choose <b>Import</b> to add it to your library or <b>Cancel</b> to skip it.")
+        label.setWordWrap(True)
+        layout.addWidget(label)
+
+        browser = QTextBrowser()
+        browser.setHtml(render_html(recipe))
+        browser.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+        layout.addWidget(browser)
+
+        btn_box = QDialogButtonBox()
+        import_btn = btn_box.addButton("Import", QDialogButtonBox.AcceptRole)
+        cancel_btn = btn_box.addButton("Cancel", QDialogButtonBox.RejectRole)
+        import_btn.clicked.connect(self.accept)
+        cancel_btn.clicked.connect(self.reject)
+        layout.addWidget(btn_box)
 
 
 class _UrlRow(QWidget):
@@ -149,8 +177,15 @@ class ImportRecipesDialog(QDialog):
         self._worker.result.connect(self._on_result)
         self._worker.finished.connect(self._on_finished)
         self._worker.ask_duplicate.connect(self._on_ask_duplicate)
+        self._worker.preview_recipe.connect(self._on_preview_recipe)
 
         self._thread.start()
+
+    @pyqtSlot(object)
+    def _on_preview_recipe(self, recipe):
+        dlg = RecipePreviewDialog(recipe, parent=self)
+        confirmed = dlg.exec_() == QDialog.Accepted
+        self._worker.answer_preview(confirmed)
 
     @pyqtSlot(str)
     def _on_ask_duplicate(self, title: str):
@@ -170,7 +205,8 @@ class ImportRecipesDialog(QDialog):
         if result.error:
             self._log_msg(f"✗ FAILED — {result.url}\n  {result.error}\n")
         elif result.skipped:
-            self._log_msg(f"— SKIPPED (duplicate) — {result.recipe.title}\n")
+            label = "cancelled at preview" if result.preview_cancelled else "duplicate"
+            self._log_msg(f"— SKIPPED ({label}) — {result.recipe.title}\n")
         else:
             self._log_msg(f"✓ Added: {result.recipe.title} (id {result.book_id})\n")
             # Refresh Calibre's book list

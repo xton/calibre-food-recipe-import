@@ -24,6 +24,7 @@ class ImportResult:
     book_id: int | None = None
     error: str | None = None         # set if the import failed
     skipped: bool = False            # True if user chose skip on duplicate
+    preview_cancelled: bool = False  # True if user cancelled at the preview step
 
 
 class RecipeImporter(QObject):
@@ -38,6 +39,9 @@ class RecipeImporter(QObject):
     # Emitted when a duplicate is found and policy=='ask'.
     # Payload: recipe title (str).  Main thread must call answer_duplicate().
     ask_duplicate = pyqtSignal(str)
+    # Emitted after scraping, before converting.
+    # Payload: Recipe object.  Main thread must call answer_preview().
+    preview_recipe = pyqtSignal(object)
 
     def __init__(self, urls: list[str], db, duplicate_policy: str):
         """
@@ -54,18 +58,26 @@ class RecipeImporter(QObject):
         self._mutex = QMutex()
         self._wait = QWaitCondition()
         self._dup_answer: str | None = None   # 'replace' or 'skip'
+        self._preview_answer: bool | None = None  # True = confirmed, False = cancelled
 
     def cancel(self):
         self._cancelled = True
-        # Unblock any waiting ask_duplicate
+        # Unblock any waiting ask_duplicate or preview
         with QMutexLocker(self._mutex):
             self._dup_answer = "skip"
+            self._preview_answer = False
             self._wait.wakeAll()
 
     def answer_duplicate(self, answer: str):
         """Called from the main thread after ask_duplicate is emitted."""
         with QMutexLocker(self._mutex):
             self._dup_answer = answer
+            self._wait.wakeAll()
+
+    def answer_preview(self, confirmed: bool):
+        """Called from the main thread after preview_recipe is emitted."""
+        with QMutexLocker(self._mutex):
+            self._preview_answer = confirmed
             self._wait.wakeAll()
 
     def run(self):
@@ -86,6 +98,10 @@ class RecipeImporter(QObject):
             return ImportResult(url, error=str(exc))
         except Exception as exc:
             return ImportResult(url, error=f"Unexpected error: {exc}")
+
+        self.progress.emit(f"Previewing '{recipe.title}' — waiting for confirmation …")
+        if not self._show_preview(recipe):
+            return ImportResult(url, recipe=recipe, skipped=True, preview_cancelled=True)
 
         # Check for an existing entry with the same title.
         existing_ids = set(self.db.search(f'title:"={recipe.title}"'))
@@ -117,6 +133,15 @@ class RecipeImporter(QObject):
             while self._dup_answer is None:
                 self._wait.wait(self._mutex)
             return self._dup_answer
+
+    def _show_preview(self, recipe: Recipe) -> bool:
+        """Block the worker thread until the user confirms or cancels the preview."""
+        with QMutexLocker(self._mutex):
+            self._preview_answer = None
+            self.preview_recipe.emit(recipe)
+            while self._preview_answer is None:
+                self._wait.wait(self._mutex)
+            return self._preview_answer
 
     def _convert_and_add(self, recipe: Recipe) -> int:
         with tempfile.TemporaryDirectory(prefix="calibre_recipe_") as tmpdir:
