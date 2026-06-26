@@ -7,7 +7,8 @@ install:
 	$(CALIBRE)/calibre-customize -b $(PLUGIN)
 
 kill:
-	pkill -x calibre || true
+	pkill -9 calibre 2>/dev/null || true
+	@while pgrep -q calibre 2>/dev/null; do sleep 0.2; done
 
 reload: install kill
 	open -a calibre
