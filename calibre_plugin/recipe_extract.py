@@ -77,10 +77,16 @@ def extract_recipe_jsonld(html: str) -> Optional[dict]:
     return None
 
 
+def _first(value):
+    """Unwrap a list to its first element (None if empty); pass non-lists through."""
+    if isinstance(value, list):
+        return value[0] if value else None
+    return value
+
+
 def _scalar(value) -> str:
     """Flatten a string-or-list to a single string."""
-    if isinstance(value, list):
-        return value[0] if value else ""
+    value = _first(value)
     return str(value) if value is not None else ""
 
 
@@ -107,10 +113,7 @@ def _list_of_strings(value) -> list[str]:
 
 def _image_url(value) -> str:
     """Extract image URL from Schema.org ImageObject or plain string."""
-    if isinstance(value, list):
-        value = value[0] if value else None
-    if value is None:
-        return ""
+    value = _first(value)
     if isinstance(value, str):
         return value
     if isinstance(value, dict):
@@ -143,10 +146,7 @@ def _format_duration(iso: str) -> str:
 
 
 def _author_name(value) -> str:
-    if isinstance(value, list):
-        value = value[0] if value else None
-    if value is None:
-        return ""
+    value = _first(value)
     if isinstance(value, str):
         return value
     if isinstance(value, dict):
