@@ -4,29 +4,29 @@ Import Recipe — Calibre Interface Action Plugin
 Adds a toolbar button that opens a dialog for importing food recipes
 from web pages (via their Schema.org JSON-LD structured data) directly
 into your Calibre library as clean EPUB files.
+
+This file is the InterfaceActionBase wrapper. It is intentionally
+free of GUI imports so that Calibre's CLI tools (calibredb, etc.) can
+read plugin metadata without loading PyQt5. The real InterfaceAction
+lives in action.py and is referenced via actual_plugin below.
 """
 
-from calibre.gui2.actions import InterfaceAction
+from calibre.customize import InterfaceActionBase
 
 
-class ImportRecipeAction(InterfaceAction):
+class ImportRecipeBase(InterfaceActionBase):
     name = "Import Recipe"
-    # (label, icon resource, tooltip, keyboard shortcut)
-    action_spec = (
-        "Import Recipe",
-        "add_book.png",
-        "Import a food recipe from a URL into your Calibre library",
-        None,
+    description = (
+        "Import food recipes from web pages into your Calibre library as clean EPUBs. "
+        "Reads Schema.org Recipe JSON-LD structured data embedded in recipe blog pages."
     )
-    # Show in the toolbar by default
-    action_add_menu = False
-    dont_add_to = frozenset()
-    popup_type = 0  # QToolButton::InstantPopup
+    author = "calibre-food-recipe-import contributors"
+    version = (0, 1, 0)
+    minimum_calibre_version = (5, 0, 0)
+    supported_platforms = ["windows", "osx", "linux"]
 
-    def genesis(self):
-        self.qaction.triggered.connect(self.show_dialog)
+    #: Pointer to the real InterfaceAction — loaded only in a GUI context.
+    actual_plugin = "calibre_plugins.import_recipe.action:ImportRecipeAction"
 
-    def show_dialog(self):
-        from calibre_plugins.import_recipe.dialog import ImportRecipesDialog
-        d = ImportRecipesDialog(self.gui, self.gui.current_db)
-        d.exec_()
+    def is_customizable(self):
+        return False

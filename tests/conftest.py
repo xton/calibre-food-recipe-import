@@ -18,6 +18,8 @@ def _make_stub(*path_parts):
 
 # Only needed if tests ever import __init__; kept here for safety.
 _make_stub("calibre")
+_make_stub("calibre", "customize")
+sys.modules["calibre.customize"].InterfaceActionBase = object
 _make_stub("calibre", "gui2")
 _make_stub("calibre", "gui2", "actions")
 sys.modules["calibre.gui2.actions"].InterfaceAction = object

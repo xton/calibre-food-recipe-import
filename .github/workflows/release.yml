@@ -1,0 +1,37 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write   # needed to create a GitHub Release and upload assets
+
+jobs:
+  release:
+    name: Build & publish release
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dev dependencies
+        run: pip install ".[dev]"
+
+      - name: Run tests
+        run: python -m pytest --tb=short -q
+
+      - name: Build plugin zip
+        run: python build.py --output-dir dist
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/import_recipe.zip
+          generate_release_notes: true
+          fail_on_unmatched_files: true
