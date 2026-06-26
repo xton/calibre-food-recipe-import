@@ -211,14 +211,6 @@ class ImportRecipesDialog(QDialog):
             self._log_msg(f"— SKIPPED ({label}) — {result.recipe.title}\n")
         else:
             self._log_msg(f"✓ Added: {result.recipe.title} (id {result.book_id})\n")
-            # Refresh Calibre's book list
-            try:
-                self.gui.current_db.refresh()
-                self.gui.iactions['Edit Metadata'].refresh_books_after_edit(
-                    {result.book_id}
-                )
-            except Exception:
-                pass  # refresh is best-effort
 
     @pyqtSlot()
     def _on_finished(self):
@@ -227,16 +219,15 @@ class ImportRecipesDialog(QDialog):
         self._thread = None
         self._worker = None
         self._import_btn.setEnabled(True)
-        if not self._had_errors:
-            self.accept()
-            return
-        self._log_msg("\nDone.")
-        # Trigger a full GUI refresh so new books appear immediately
         try:
             self.gui.tags_view.recount()
             self.gui.library_view.model().refresh()
         except Exception:
             pass
+        if not self._had_errors:
+            self.accept()
+        else:
+            self._log_msg("\nDone.")
 
     def _on_cancel(self):
         if self._worker:
