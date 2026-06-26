@@ -1,7 +1,11 @@
 CALIBRE   := /Applications/calibre.app/Contents/MacOS
 PLUGIN    := calibre_plugin
 
-.PHONY: install kill reload test
+ifneq ($(shell uname),Darwin)
+$(error install/reload targets are macOS-only. Run 'python build.py' to build the zip on other platforms.)
+endif
+
+.PHONY: install kill reload dist test
 
 install:
 	$(CALIBRE)/calibre-customize -b $(PLUGIN)
@@ -12,6 +16,9 @@ kill:
 
 reload: install kill
 	open -a calibre
+
+dist:
+	python build.py
 
 test:
 	python -m pytest tests/ -q
