@@ -3,13 +3,12 @@ ImportRecipesDialog — the main UI shown when the toolbar button is clicked.
 """
 
 from PyQt5.Qt import (
-    QDialog, QDialogButtonBox, QGroupBox, QHBoxLayout, QLabel,
-    QLineEdit, QListWidget, QListWidgetItem, QPushButton, QScrollArea,
-    QSizePolicy, QTextEdit, QThread, QVBoxLayout, QWidget,
-    Qt, pyqtSlot,
+    QComboBox, QDialog, QDialogButtonBox, QGroupBox, QHBoxLayout,
+    QLineEdit, QMessageBox, QPushButton, QScrollArea, QTextEdit,
+    QThread, QVBoxLayout, QWidget, Qt, pyqtSlot,
 )
 
-from calibre.gui2 import error_dialog, info_dialog, question_dialog, warning_dialog
+from calibre.gui2 import error_dialog, warning_dialog
 
 from .importer import RecipeImporter, ImportResult
 
@@ -71,7 +70,6 @@ class ImportRecipesDialog(QDialog):
         # --- Duplicate policy ---
         dup_group = QGroupBox("If a recipe with the same title already exists")
         dup_layout = QHBoxLayout(dup_group)
-        from PyQt5.Qt import QComboBox
         self._dup_combo = QComboBox()
         self._dup_combo.addItem("Ask me each time", "ask")
         self._dup_combo.addItem("Skip (keep existing)", "skip")
@@ -156,7 +154,6 @@ class ImportRecipesDialog(QDialog):
 
     @pyqtSlot(str)
     def _on_ask_duplicate(self, title: str):
-        from PyQt5.Qt import QMessageBox
         msg = QMessageBox(self)
         msg.setWindowTitle("Duplicate Recipe")
         msg.setText(f"<b>{title}</b> is already in your library.")
