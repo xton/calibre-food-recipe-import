@@ -156,8 +156,8 @@ def _author_name(value) -> str:
 def _tags_from_recipe(raw: dict) -> list[str]:
     """Collect tags from recipeCategory, recipeCuisine, keywords."""
     tags = []
-    for field in ("recipeCategory", "recipeCuisine"):
-        v = raw.get(field)
+    for key in ("recipeCategory", "recipeCuisine"):
+        v = raw.get(key)
         if isinstance(v, list):
             tags.extend(str(x).strip() for x in v if str(x).strip())
         elif isinstance(v, str) and v.strip():
