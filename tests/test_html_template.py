@@ -47,23 +47,18 @@ class TestHtmlStructure:
         assert "<title>My Cake</title>" in html
         assert "<h1>My Cake</h1>" in html
 
-    def test_ingredients_in_aside(self):
+    def test_ingredients_in_body(self):
         html = render_html(_make_recipe(ingredients=["flour", "sugar", "butter"]))
-        aside_match = re.search(r"<aside>(.*?)</aside>", html, re.DOTALL)
-        assert aside_match, "No <aside> found"
-        aside = aside_match.group(1)
-        assert "flour" in aside
-        assert "sugar" in aside
-        assert "butter" in aside
+        assert "<ul>" in html
+        assert "flour" in html
+        assert "sugar" in html
+        assert "butter" in html
 
     def test_instructions_in_ordered_list(self):
         html = render_html(_make_recipe(steps=["Step one", "Step two"]))
-        main_match = re.search(r"<main>(.*?)</main>", html, re.DOTALL)
-        assert main_match, "No <main> found"
-        main_content = main_match.group(1)
-        assert "<ol>" in main_content
-        assert "Step one" in main_content
-        assert "Step two" in main_content
+        assert "<ol>" in html
+        assert "Step one" in html
+        assert "Step two" in html
 
     def test_source_url_present(self):
         html = render_html(_make_recipe())
@@ -153,7 +148,7 @@ class TestEdgeCases:
     def test_empty_ingredients_list(self):
         r = _make_recipe(ingredients=[])
         html = render_html(r)
-        assert "<aside>" in html   # aside still renders
+        assert "<ul>" in html   # ul still renders
 
     def test_empty_instructions_list(self):
         r = _make_recipe(steps=[])

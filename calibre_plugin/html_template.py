@@ -18,29 +18,14 @@ body {
     color: #222;
 }
 h1 { font-size: 1.8em; margin-bottom: 0.2em; }
+h2 { font-size: 1em; text-transform: uppercase; letter-spacing: 0.05em; }
 .meta { color: #666; font-size: 0.9em; margin-bottom: 1.5em; }
 .meta span { margin-right: 1.5em; }
-.layout { display: flex; gap: 2em; }
-aside {
-    min-width: 220px;
-    max-width: 260px;
-    background: #f8f5f0;
-    border-left: 3px solid #c8a96e;
-    padding: 1em;
-    font-size: 0.92em;
-}
-aside h2 { font-size: 1em; margin-top: 0; text-transform: uppercase; letter-spacing: 0.05em; }
-aside ul { margin: 0; padding-left: 1.2em; }
-aside li { margin-bottom: 0.4em; }
-main { flex: 1; }
-main h2 { font-size: 1em; text-transform: uppercase; letter-spacing: 0.05em; }
+ul { padding-left: 1.4em; }
+ul li { margin-bottom: 0.4em; }
 ol { padding-left: 1.4em; }
 ol li { margin-bottom: 0.8em; }
 .source { font-size: 0.8em; color: #888; margin-top: 2em; word-break: break-all; }
-@media (max-width: 500px) {
-    .layout { flex-direction: column; }
-    aside { max-width: 100%; }
-}
 """
 
 
@@ -88,20 +73,14 @@ def render_html(recipe: Recipe) -> str:
   {cover_img}
   <h1>{_e(recipe.title)}</h1>
   <div class="meta">{meta_html}</div>
-  <div class="layout">
-    <aside>
-      <h2>Ingredients</h2>
-      <ul>
+  <h2>Ingredients</h2>
+  <ul>
 {ingredients_html}
-      </ul>
-    </aside>
-    <main>
-      <h2>Instructions</h2>
-      <ol>
+  </ul>
+  <h2>Instructions</h2>
+  <ol>
 {instructions_html}
-      </ol>
-    </main>
-  </div>
+  </ol>
   <p class="source">Source: <a href="{_e(recipe.source_url)}">{_e(recipe.source_url)}</a></p>
 </body>
 </html>
