@@ -126,7 +126,9 @@ def _duration_minutes(iso: str) -> Optional[int]:
         return None
     hours = int(m.group(1) or 0)
     mins = int(m.group(2) or 0)
-    return hours * 60 + mins or None
+    total = hours * 60 + mins
+    # Treat a zero/sub-minute duration as "no meaningful total time".
+    return total if total > 0 else None
 
 
 def _format_duration(iso: str) -> str:
