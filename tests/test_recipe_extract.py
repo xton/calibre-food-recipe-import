@@ -12,6 +12,7 @@ from calibre_plugin.recipe_extract import (
     _scalar,
     _tags_from_recipe,
     extract_recipe_jsonld,
+    extract_recipe_microdata,
 )
 
 
@@ -334,3 +335,112 @@ class TestRecipe:
     def test_source_url_stored(self):
         r = self._make()
         assert r.source_url == "https://example.com/recipe"
+
+
+# ---------------------------------------------------------------------------
+# extract_recipe_microdata
+# ---------------------------------------------------------------------------
+
+def _microdata_html(
+    name="Test Recipe",
+    ingredients=("1 cup flour", "2 eggs"),
+    instructions=("Mix.", "Bake."),
+    total_time=None,
+    yields=None,
+    image=None,
+    description=None,
+) -> str:
+    parts = [
+        '<div itemscope itemtype="https://schema.org/Recipe">',
+        f'<h3 itemprop="name">{name}</h3>',
+    ]
+    if description:
+        parts.append(f'<p itemprop="description">{description}</p>')
+    if yields:
+        parts.append(f'<span itemprop="recipeYield">{yields}</span>')
+    if total_time:
+        parts.append(f'<time itemprop="totalTime" datetime="{total_time}">{total_time}</time>')
+    if image:
+        parts.append(f'<img itemprop="image" src="{image}" />')
+    for ing in ingredients:
+        parts.append(f'<li itemprop="recipeIngredient">{ing}</li>')
+    for step in instructions:
+        parts.append(f'<li itemprop="recipeInstructions">{step}</li>')
+    parts.append("</div>")
+    return "<html><body>" + "".join(parts) + "</body></html>"
+
+
+class TestExtractRecipeMicrodata:
+    def test_basic_extraction(self):
+        raw = extract_recipe_microdata(_microdata_html())
+        assert raw is not None
+        assert raw["name"] == "Test Recipe"
+
+    def test_ingredients_collected(self):
+        raw = extract_recipe_microdata(_microdata_html(ingredients=["1 cup flour", "2 eggs"]))
+        assert raw["recipeIngredient"] == ["1 cup flour", "2 eggs"]
+
+    def test_instructions_collected(self):
+        raw = extract_recipe_microdata(_microdata_html(instructions=["Mix.", "Bake."]))
+        assert raw["recipeInstructions"] == ["Mix.", "Bake."]
+
+    def test_iso_duration_stored(self):
+        raw = extract_recipe_microdata(_microdata_html(total_time="PT45M"))
+        assert raw["totalTime"] == "PT45M"
+
+    def test_human_readable_duration_stored(self):
+        raw = extract_recipe_microdata(_microdata_html(total_time="3 hours including cooling"))
+        assert raw["totalTime"] == "3 hours including cooling"
+
+    def test_yields_extracted(self):
+        raw = extract_recipe_microdata(_microdata_html(yields="8 servings"))
+        assert raw["recipeYield"] == "8 servings"
+
+    def test_image_from_src_attribute(self):
+        raw = extract_recipe_microdata(_microdata_html(image="https://example.com/photo.jpg"))
+        assert raw["image"] == "https://example.com/photo.jpg"
+
+    def test_description_extracted(self):
+        raw = extract_recipe_microdata(_microdata_html(description="A great recipe."))
+        assert raw["description"] == "A great recipe."
+
+    def test_no_recipe_returns_none(self):
+        assert extract_recipe_microdata("<html><body>no recipe here</body></html>") is None
+
+    def test_no_name_returns_none(self):
+        html = '<div itemscope itemtype="https://schema.org/Recipe"><li itemprop="recipeIngredient">flour</li></div>'
+        assert extract_recipe_microdata(html) is None
+
+    def test_case_insensitive_itemtype(self):
+        html = '<div itemscope itemtype="https://schema.org/Recipe"><h3 itemprop="name">Cake</h3></div>'
+        raw = extract_recipe_microdata(html)
+        assert raw is not None
+
+    def test_nested_elements_inside_itemprop(self):
+        html = (
+            '<div itemscope itemtype="https://schema.org/Recipe">'
+            '<h3 itemprop="name">Cake</h3>'
+            '<li itemprop="recipeIngredient"><strong>1 cup</strong> flour</li>'
+            '</div>'
+        )
+        raw = extract_recipe_microdata(html)
+        assert raw is not None
+        assert "flour" in raw["recipeIngredient"][0]
+
+    def test_jetpack_style_recipe(self):
+        """Matches the WordPress Jetpack recipe plugin pattern used by Smitten Kitchen."""
+        html = (
+            '<div class="jetpack-recipe" itemscope itemtype="https://schema.org/Recipe">'
+            '<h3 class="jetpack-recipe-title" itemprop="name">Strawberry Cake</h3>'
+            '<li class="jetpack-recipe-servings" itemprop="recipeYield"><strong>Servings: </strong>8</li>'
+            '<time itemprop="totalTime" datetime="2 hours"><strong>Time:</strong> 2 hours</time>'
+            '<li class="jetpack-recipe-ingredient" itemprop="recipeIngredient">2 cups flour</li>'
+            '<li class="jetpack-recipe-ingredient" itemprop="recipeIngredient">1 cup sugar</li>'
+            '</div>'
+        )
+        raw = extract_recipe_microdata(html)
+        assert raw is not None
+        assert raw["name"] == "Strawberry Cake"
+        assert raw["totalTime"] == "2 hours"
+        assert len(raw["recipeIngredient"]) == 2
+        assert raw["recipeIngredient"][0] == "2 cups flour"
