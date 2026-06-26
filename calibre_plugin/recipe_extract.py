@@ -8,7 +8,6 @@ import re
 import urllib.request
 import urllib.error
 from dataclasses import dataclass, field
-from typing import Optional
 
 
 _JSONLD_RE = re.compile(
@@ -41,7 +40,7 @@ def fetch_html(url: str, timeout: int = 30) -> str:
         raise RecipeExtractionError(f"Network error fetching {url}: {exc.reason}") from exc
 
 
-def _find_recipe_in_obj(obj) -> Optional[dict]:
+def _find_recipe_in_obj(obj) -> dict | None:
     """Recursively search a decoded JSON object for a Recipe @type node."""
     if isinstance(obj, dict):
         t = obj.get("@type", "")
@@ -63,7 +62,7 @@ def _find_recipe_in_obj(obj) -> Optional[dict]:
     return None
 
 
-def extract_recipe_jsonld(html: str) -> Optional[dict]:
+def extract_recipe_jsonld(html: str) -> dict | None:
     """Return the first Schema.org Recipe dict found in JSON-LD blocks, or None."""
     for match in _JSONLD_RE.finditer(html):
         raw = match.group(1).strip()
@@ -121,7 +120,7 @@ def _image_url(value) -> str:
     return ""
 
 
-def _duration_minutes(iso: str) -> Optional[int]:
+def _duration_minutes(iso: str) -> int | None:
     """Parse ISO 8601 duration (PT1H30M) to total minutes, or None."""
     if not iso:
         return None
