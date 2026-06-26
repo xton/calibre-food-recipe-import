@@ -29,4 +29,8 @@ class ImportRecipeBase(InterfaceActionBase):
     actual_plugin = "calibre_plugins.import_recipe.action:ImportRecipeAction"
 
     def is_customizable(self):
-        return False
+        return True
+
+    def config_widget(self):
+        from calibre_plugins.import_recipe.config_widget import ConfigWidget
+        return ConfigWidget()

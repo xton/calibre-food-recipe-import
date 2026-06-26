@@ -15,6 +15,7 @@ from PyQt5.Qt import QMutex, QMutexLocker, QObject, QWaitCondition, pyqtSignal
 
 from calibre.ebooks.metadata.book.base import Metadata
 
+from .config import prefs
 from .recipe_extract import Recipe, RecipeExtractionError, scrape
 from .html_template import render_html
 
@@ -208,8 +209,7 @@ class RecipeImporter(QObject):
 
             # Build Calibre Metadata
             mi = Metadata(recipe.title)
-            if recipe.author:
-                mi.authors = [recipe.author]
+            mi.authors = [recipe.author or prefs['default_author']]
             if recipe.tags:
                 mi.tags = recipe.tags
             comments = f'<p>Source: <a href="{recipe.source_url}">{recipe.source_url}</a></p>'
