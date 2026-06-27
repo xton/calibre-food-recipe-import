@@ -75,6 +75,8 @@ class ManualEntryDialog(QDialog):
         ing_layout = QVBoxLayout(ing_group)
         self._ing_edit = QTextEdit()
         self._ing_edit.setPlaceholderText("2 cups flour\n1 tsp salt\n…")
+        if partial.ingredients:
+            self._ing_edit.setPlainText("\n".join(partial.ingredients))
         ing_layout.addWidget(self._ing_edit)
         areas.addWidget(ing_group)
 
@@ -82,6 +84,8 @@ class ManualEntryDialog(QDialog):
         inst_layout = QVBoxLayout(inst_group)
         self._inst_edit = QTextEdit()
         self._inst_edit.setPlaceholderText("Whisk dry ingredients.\nAdd buttermilk and egg.\n…")
+        if partial.instructions:
+            self._inst_edit.setPlainText("\n".join(partial.instructions))
         inst_layout.addWidget(self._inst_edit)
         areas.addWidget(inst_group)
 

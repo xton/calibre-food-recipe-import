@@ -117,22 +117,29 @@ class RecipeImporter(QObject):
             return self._manual_answer  # Recipe or None
 
     def _import_one(self, url: str) -> ImportResult:
+        recipe = None
         try:
             self.progress.emit(f"Extracting recipe from {url} …")
             recipe = scrape(url)
         except RecipeExtractionError:
-            self.progress.emit(f"No structured data found — requesting manual entry …")
-            partial = scrape_partial(url)
-            recipe = self._ask_manual_entry(partial)
-            if recipe is None:
-                return ImportResult(url, skipped=True, preview_cancelled=True)
-            # Manual entry skips the separate preview step — the dialog IS the preview
+            self.progress.emit("No structured data found — requesting manual entry …")
+            recipe = self._ask_manual_entry(scrape_partial(url))
         except Exception as exc:
             return ImportResult(url, error=f"Unexpected error: {exc}")
-        else:
+
+        if recipe is None:
+            return ImportResult(url, skipped=True, preview_cancelled=True)
+
+        if recipe.ingredients and recipe.instructions:
             self.progress.emit(f"Previewing '{recipe.title}' — waiting for confirmation …")
             if not self._show_preview(recipe):
                 return ImportResult(url, recipe=recipe, skipped=True, preview_cancelled=True)
+        else:
+            missing = "ingredients" if not recipe.ingredients else "instructions"
+            self.progress.emit(f"Recipe missing {missing} — requesting manual entry …")
+            recipe = self._ask_manual_entry(recipe)
+            if recipe is None:
+                return ImportResult(url, skipped=True, preview_cancelled=True)
 
         # Check for an existing entry with the same title.
         existing_ids = set(self.db.search(f'title:"={recipe.title}"'))

@@ -99,6 +99,11 @@ class _MicrodataParser(_HTMLParser):
         self._prop_depth = 0
         self._text_buf: list[str] = []
         self._data: dict = {}
+        # hRecipe e-instructions block (Jetpack uses this without itemprop)
+        self._in_instructions_block = False
+        self._instructions_div_depth = 0   # count of open divs inside the block
+        self._instructions_buf: list[str] = []
+        self._instructions_paragraphs: list[str] = []
         # Post-recipe paragraph collection (fallback for sites that put
         # instructions in the blog body rather than in microdata)
         self._post_recipe = False
@@ -123,27 +128,38 @@ class _MicrodataParser(_HTMLParser):
                 self._in_recipe = True
                 self._recipe_depth = self._depth
         else:
-            itemprop = attrs.get("itemprop")
-            if itemprop and self._current_prop is None:
-                self._current_prop = itemprop
-                self._prop_depth = self._depth
-                self._text_buf = []
-                # Capture attribute-based values immediately (no text content needed)
-                if tag == "time":
-                    dt = attrs.get("datetime", "").strip()
-                    if dt:
-                        self._store(itemprop, dt)
-                        self._current_prop = None
-                elif tag == "img":
-                    src = attrs.get("src", "").strip()
-                    if src:
-                        self._store(itemprop, src)
-                        self._current_prop = None
-                elif tag == "meta":
-                    content = attrs.get("content", "").strip()
-                    if content:
-                        self._store(itemprop, content)
-                        self._current_prop = None
+            classes = attrs.get("class", "").split()
+            if "e-instructions" in classes and not self._in_instructions_block:
+                # hRecipe instructions block — collect paragraphs as separate steps
+                self._in_instructions_block = True
+                self._instructions_div_depth = 1
+            elif self._in_instructions_block:
+                if tag == "div":
+                    self._instructions_div_depth += 1
+                elif tag == "p":
+                    self._flush_instructions_buf()
+            else:
+                itemprop = attrs.get("itemprop")
+                if itemprop and self._current_prop is None:
+                    self._current_prop = itemprop
+                    self._prop_depth = self._depth
+                    self._text_buf = []
+                    # Capture attribute-based values immediately (no text content needed)
+                    if tag == "time":
+                        dt = attrs.get("datetime", "").strip()
+                        if dt:
+                            self._store(itemprop, dt)
+                            self._current_prop = None
+                    elif tag == "img":
+                        src = attrs.get("src", "").strip()
+                        if src:
+                            self._store(itemprop, src)
+                            self._current_prop = None
+                    elif tag == "meta":
+                        content = attrs.get("content", "").strip()
+                        if content:
+                            self._store(itemprop, content)
+                            self._current_prop = None
 
         if tag in self._VOID_TAGS:
             self._depth -= 1
@@ -156,6 +172,16 @@ class _MicrodataParser(_HTMLParser):
 
         if not self._in_recipe:
             return
+
+        if self._in_instructions_block:
+            if tag == "div":
+                self._instructions_div_depth -= 1
+                if self._instructions_div_depth == 0:
+                    self._flush_instructions_buf()
+                    self._in_instructions_block = False
+            elif tag == "p":
+                self._flush_instructions_buf()
+
         if self._depth == self._recipe_depth:
             self._in_recipe = False
             self._post_recipe = True  # start collecting post-recipe paragraphs
@@ -171,8 +197,17 @@ class _MicrodataParser(_HTMLParser):
         if self._post_recipe:
             self._post_buf.append(data)
             return
+        if self._in_recipe and self._in_instructions_block and self._current_prop is None:
+            self._instructions_buf.append(data)
+            return
         if self._in_recipe and self._current_prop is not None:
             self._text_buf.append(data)
+
+    def _flush_instructions_buf(self) -> None:
+        text = "".join(self._instructions_buf).strip()
+        if text:
+            self._instructions_paragraphs.append(text)
+        self._instructions_buf = []
 
     def _flush_post_buf(self) -> None:
         text = "".join(self._post_buf).strip()
@@ -189,11 +224,13 @@ class _MicrodataParser(_HTMLParser):
     def get_result(self) -> dict | None:
         if not self._data.get("name"):
             return None
-        if not self._data.get("recipeInstructions") and self._post_paragraphs:
-            result = dict(self._data)
-            result["recipeInstructions"] = list(self._post_paragraphs)
-            return result
-        return self._data
+        if self._data.get("recipeInstructions"):
+            return self._data
+        result = dict(self._data)
+        instructions = self._instructions_paragraphs or self._post_paragraphs
+        if instructions:
+            result["recipeInstructions"] = list(instructions)
+        return result
 
 
 def extract_recipe_microdata(html: str) -> dict | None:

@@ -486,6 +486,34 @@ class TestExtractRecipeMicrodata:
         raw = extract_recipe_microdata(html)
         assert raw["recipeInstructions"] == ["Step one."]
 
+    def test_e_instructions_collected_as_steps(self):
+        """Jetpack uses class='e-instructions' (hRecipe) without itemprop."""
+        html = (
+            '<div itemscope itemtype="https://schema.org/Recipe">'
+            '<h3 itemprop="name">Waffles</h3>'
+            '<li itemprop="recipeIngredient">2 cups flour</li>'
+            '<div class="jetpack-recipe-directions e-instructions">'
+            'Mix the batter.</p>'
+            '<p>Cook on waffle iron.</p>'
+            '</div>'
+            '</div>'
+        )
+        raw = extract_recipe_microdata(html)
+        assert raw is not None
+        assert raw["recipeInstructions"] == ["Mix the batter.", "Cook on waffle iron."]
+
+    def test_e_instructions_takes_precedence_over_post_recipe(self):
+        """e-instructions block should be preferred over post-recipe paragraphs."""
+        html = (
+            '<div itemscope itemtype="https://schema.org/Recipe">'
+            '<h3 itemprop="name">Cake</h3>'
+            '<div class="e-instructions">Step one.</div>'
+            '</div>'
+            '<p>This should be ignored.</p>'
+        )
+        raw = extract_recipe_microdata(html)
+        assert raw["recipeInstructions"] == ["Step one."]
+
     def test_post_recipe_bare_text_before_first_p(self):
         """Text before the first explicit </p> is captured (handles Smitten Kitchen's
         malformed first step that has no opening <p> tag)."""
