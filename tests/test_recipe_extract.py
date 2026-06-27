@@ -9,6 +9,8 @@ from calibre_plugin.recipe_extract import (
     _format_duration,
     _image_url,
     _list_of_strings,
+    _og_value,
+    _page_title,
     _scalar,
     _tags_from_recipe,
     extract_recipe_jsonld,
@@ -498,3 +500,35 @@ class TestExtractRecipeMicrodata:
         raw = extract_recipe_microdata(html)
         assert raw["recipeInstructions"][0] == "Heat oven: To 350F."
         assert raw["recipeInstructions"][1] == "Mix ingredients."
+
+
+# ---------------------------------------------------------------------------
+# _og_value / _page_title (helpers for scrape_partial)
+# ---------------------------------------------------------------------------
+
+class TestOgHelpers:
+    def test_og_title_property_first(self):
+        html = '<meta property="og:title" content="My Recipe" />'
+        assert _og_value(html, "title") == "My Recipe"
+
+    def test_og_title_content_first(self):
+        html = '<meta content="My Recipe" property="og:title" />'
+        assert _og_value(html, "title") == "My Recipe"
+
+    def test_og_image(self):
+        html = '<meta property="og:image" content="https://img.example.com/photo.jpg" />'
+        assert _og_value(html, "image") == "https://img.example.com/photo.jpg"
+
+    def test_og_missing(self):
+        assert _og_value("<html></html>", "title") == ""
+
+    def test_og_html_entities_unescaped(self):
+        html = '<meta property="og:title" content="Caf&eacute; Recipe" />'
+        assert _og_value(html, "title") == "Café Recipe"
+
+    def test_page_title(self):
+        html = "<html><head><title>Blueberry Pancakes</title></head></html>"
+        assert _page_title(html) == "Blueberry Pancakes"
+
+    def test_page_title_missing(self):
+        assert _page_title("<html></html>") == ""

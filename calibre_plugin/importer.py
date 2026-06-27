@@ -16,7 +16,9 @@ from PyQt5.Qt import QMutex, QMutexLocker, QObject, QWaitCondition, pyqtSignal
 from calibre.ebooks.metadata.book.base import Metadata
 
 from .config import prefs
-from .recipe_extract import Recipe, RecipeExtractionError, scrape
+from .recipe_extract import Recipe, RecipeExtractionError, scrape, scrape_partial
+
+_UNANSWERED = object()  # sentinel for uninitialised cross-thread answers
 from .html_template import render_html
 
 
@@ -45,6 +47,9 @@ class RecipeImporter(QObject):
     # Emitted after scraping, before converting.
     # Payload: Recipe object.  Main thread must call answer_preview().
     preview_recipe = pyqtSignal(object)
+    # Emitted when no structured data is found; payload: partial Recipe.
+    # Main thread must call answer_manual() with a completed Recipe or None.
+    manual_entry = pyqtSignal(object)
 
     def __init__(self, urls: list[str], db, duplicate_policy: str):
         """
@@ -62,13 +67,14 @@ class RecipeImporter(QObject):
         self._wait = QWaitCondition()
         self._dup_answer: str | None = None   # 'replace' or 'skip'
         self._preview_answer: bool | None = None  # True = confirmed, False = cancelled
+        self._manual_answer = _UNANSWERED     # Recipe = proceed, None = cancelled
 
     def cancel(self):
         self._cancelled = True
-        # Unblock any waiting ask_duplicate or preview
         with QMutexLocker(self._mutex):
             self._dup_answer = "skip"
             self._preview_answer = False
+            self._manual_answer = None
             self._wait.wakeAll()
 
     def answer_duplicate(self, answer: str):
@@ -83,6 +89,14 @@ class RecipeImporter(QObject):
             self._preview_answer = confirmed
             self._wait.wakeAll()
 
+    def answer_manual(self, recipe):
+        """Called from the main thread after manual_entry is emitted.
+        recipe is a completed Recipe, or None if the user cancelled.
+        """
+        with QMutexLocker(self._mutex):
+            self._manual_answer = recipe
+            self._wait.wakeAll()
+
     def run(self):
         for url in self.urls:
             if self._cancelled:
@@ -93,18 +107,32 @@ class RecipeImporter(QObject):
         self.finished.emit()
 
     # ------------------------------------------------------------------
+    def _ask_manual_entry(self, partial: Recipe) -> Recipe | None:
+        """Block the worker thread until the user fills in the manual-entry dialog."""
+        with QMutexLocker(self._mutex):
+            self._manual_answer = _UNANSWERED
+            self.manual_entry.emit(partial)
+            while self._manual_answer is _UNANSWERED:
+                self._wait.wait(self._mutex)
+            return self._manual_answer  # Recipe or None
+
     def _import_one(self, url: str) -> ImportResult:
         try:
             self.progress.emit(f"Extracting recipe from {url} …")
             recipe = scrape(url)
-        except RecipeExtractionError as exc:
-            return ImportResult(url, error=str(exc))
+        except RecipeExtractionError:
+            self.progress.emit(f"No structured data found — requesting manual entry …")
+            partial = scrape_partial(url)
+            recipe = self._ask_manual_entry(partial)
+            if recipe is None:
+                return ImportResult(url, skipped=True, preview_cancelled=True)
+            # Manual entry skips the separate preview step — the dialog IS the preview
         except Exception as exc:
             return ImportResult(url, error=f"Unexpected error: {exc}")
-
-        self.progress.emit(f"Previewing '{recipe.title}' — waiting for confirmation …")
-        if not self._show_preview(recipe):
-            return ImportResult(url, recipe=recipe, skipped=True, preview_cancelled=True)
+        else:
+            self.progress.emit(f"Previewing '{recipe.title}' — waiting for confirmation …")
+            if not self._show_preview(recipe):
+                return ImportResult(url, recipe=recipe, skipped=True, preview_cancelled=True)
 
         # Check for an existing entry with the same title.
         existing_ids = set(self.db.search(f'title:"={recipe.title}"'))

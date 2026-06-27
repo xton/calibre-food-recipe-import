@@ -3,7 +3,7 @@ ImportRecipesDialog — the main UI shown when the toolbar button is clicked.
 """
 
 from PyQt5.Qt import (
-    QComboBox, QDialog, QDialogButtonBox, QGroupBox, QHBoxLayout,
+    QComboBox, QDialog, QDialogButtonBox, QFormLayout, QGroupBox, QHBoxLayout,
     QLabel, QLineEdit, QMessageBox, QPushButton, QScrollArea, QSizePolicy,
     QTextBrowser, QTextEdit, QThread, QVBoxLayout, QWidget, Qt, pyqtSlot,
 )
@@ -12,6 +12,7 @@ from calibre.gui2 import error_dialog, warning_dialog
 
 from .html_template import render_html
 from .importer import RecipeImporter, ImportResult
+from .recipe_extract import Recipe
 
 
 class RecipePreviewDialog(QDialog):
@@ -39,6 +40,79 @@ class RecipePreviewDialog(QDialog):
         import_btn.clicked.connect(self.accept)
         cancel_btn.clicked.connect(self.reject)
         layout.addWidget(btn_box)
+
+
+class ManualEntryDialog(QDialog):
+    """Shown when no structured recipe data is found on the page.
+    Pre-filled with whatever OG metadata could be extracted.
+    """
+
+    def __init__(self, partial: Recipe, parent=None):
+        super().__init__(parent)
+        self._partial = partial
+        self._recipe: Recipe | None = None
+
+        self.setWindowTitle("Manual Recipe Entry")
+        self.setMinimumSize(660, 520)
+
+        layout = QVBoxLayout(self)
+
+        info = QLabel(
+            "No structured recipe data was found on this page. "
+            "Paste the ingredients and instructions below to import it manually."
+        )
+        info.setWordWrap(True)
+        layout.addWidget(info)
+
+        form = QFormLayout()
+        self._title_edit = QLineEdit(partial.title)
+        form.addRow("Title:", self._title_edit)
+        layout.addLayout(form)
+
+        areas = QHBoxLayout()
+
+        ing_group = QGroupBox("Ingredients (one per line)")
+        ing_layout = QVBoxLayout(ing_group)
+        self._ing_edit = QTextEdit()
+        self._ing_edit.setPlaceholderText("2 cups flour\n1 tsp salt\n…")
+        ing_layout.addWidget(self._ing_edit)
+        areas.addWidget(ing_group)
+
+        inst_group = QGroupBox("Instructions (one per line)")
+        inst_layout = QVBoxLayout(inst_group)
+        self._inst_edit = QTextEdit()
+        self._inst_edit.setPlaceholderText("Whisk dry ingredients.\nAdd buttermilk and egg.\n…")
+        inst_layout.addWidget(self._inst_edit)
+        areas.addWidget(inst_group)
+
+        layout.addLayout(areas)
+
+        btn_box = QDialogButtonBox()
+        import_btn = btn_box.addButton("Import", QDialogButtonBox.AcceptRole)
+        cancel_btn = btn_box.addButton("Cancel", QDialogButtonBox.RejectRole)
+        import_btn.clicked.connect(self._on_import)
+        cancel_btn.clicked.connect(self.reject)
+        layout.addWidget(btn_box)
+
+    def _on_import(self):
+        import dataclasses
+        title = self._title_edit.text().strip() or "Untitled Recipe"
+        ingredients = [
+            line for line in (l.strip() for l in self._ing_edit.toPlainText().splitlines()) if line
+        ]
+        instructions = [
+            line for line in (l.strip() for l in self._inst_edit.toPlainText().splitlines()) if line
+        ]
+        self._recipe = dataclasses.replace(
+            self._partial,
+            title=title,
+            ingredients=ingredients,
+            instructions=instructions,
+        )
+        self.accept()
+
+    def get_recipe(self) -> Recipe | None:
+        return self._recipe
 
 
 class _UrlRow(QWidget):
@@ -179,6 +253,7 @@ class ImportRecipesDialog(QDialog):
         self._worker.finished.connect(self._on_finished)
         self._worker.ask_duplicate.connect(self._on_ask_duplicate)
         self._worker.preview_recipe.connect(self._on_preview_recipe)
+        self._worker.manual_entry.connect(self._on_manual_entry)
 
         self._thread.start()
 
@@ -187,6 +262,14 @@ class ImportRecipesDialog(QDialog):
         dlg = RecipePreviewDialog(recipe, parent=self)
         confirmed = dlg.exec_() == QDialog.Accepted
         self._worker.answer_preview(confirmed)
+
+    @pyqtSlot(object)
+    def _on_manual_entry(self, partial):
+        dlg = ManualEntryDialog(partial, parent=self)
+        if dlg.exec_() == QDialog.Accepted:
+            self._worker.answer_manual(dlg.get_recipe())
+        else:
+            self._worker.answer_manual(None)
 
     @pyqtSlot(str)
     def _on_ask_duplicate(self, title: str):

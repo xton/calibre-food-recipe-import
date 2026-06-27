@@ -3,6 +3,7 @@ Fetch a web page and extract a Schema.org Recipe object from its JSON-LD blocks.
 No external dependencies — uses only Python stdlib.
 """
 
+import html as _html
 import json
 import re
 import urllib.request
@@ -389,3 +390,38 @@ def scrape(url: str) -> Recipe:
         f"No Schema.org Recipe found in the page at {url}.\n"
         "The site may not embed structured data, or may block automated fetching."
     )
+
+
+def _og_value(html_text: str, name: str) -> str:
+    """Extract content from <meta property="og:NAME" content="...">."""
+    escaped = re.escape(name)
+    for pat in (
+        rf'property=["\']og:{escaped}["\'][^>]+content=["\']([^"\']*)["\']',
+        rf'content=["\']([^"\']*)["\'][^>]+property=["\']og:{escaped}["\']',
+    ):
+        m = re.search(pat, html_text, re.IGNORECASE)
+        if m:
+            return _html.unescape(m.group(1))
+    return ""
+
+
+def _page_title(html_text: str) -> str:
+    m = re.search(r"<title[^>]*>(.*?)</title>", html_text, re.DOTALL | re.IGNORECASE)
+    return _html.unescape(m.group(1)).strip() if m else ""
+
+
+def scrape_partial(url: str) -> Recipe:
+    """Fetch *url* and return whatever page metadata is available.
+
+    Returns a Recipe with empty ingredients and instructions — intended as
+    pre-fill data for the manual-entry dialog when no structured data is found.
+    Never raises RecipeExtractionError; falls back to a bare Recipe on error.
+    """
+    try:
+        html_text = fetch_html(url)
+    except RecipeExtractionError:
+        return Recipe(source_url=url, title=url)
+    title = _og_value(html_text, "title") or _page_title(html_text) or url
+    description = _og_value(html_text, "description") or ""
+    image_url = _og_value(html_text, "image") or ""
+    return Recipe(source_url=url, title=title, description=description, image_url=image_url)
