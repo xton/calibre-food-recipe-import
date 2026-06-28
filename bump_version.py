@@ -19,7 +19,9 @@ import sys
 from pathlib import Path
 
 INIT_FILE = Path(__file__).parent / "calibre_plugin" / "__init__.py"
+PYPROJECT_FILE = Path(__file__).parent / "pyproject.toml"
 VERSION_RE = re.compile(r"^(\s*version\s*=\s*)\((\d+),\s*(\d+),\s*(\d+)\)", re.MULTILINE)
+PYPROJECT_VERSION_RE = re.compile(r'^(version\s*=\s*)"(\d+\.\d+\.\d+)"', re.MULTILINE)
 
 
 def read_version(text: str) -> tuple[int, int, int]:
@@ -65,13 +67,14 @@ def main() -> None:
                         help="Show what would happen without making any changes")
     args = parser.parse_args()
 
-    # Safety check: no uncommitted changes to __init__.py
+    # Safety check: no uncommitted changes to versioned files
+    versioned = [str(INIT_FILE), str(PYPROJECT_FILE)]
     dirty = subprocess.run(
-        ["git", "status", "--porcelain", str(INIT_FILE)],
+        ["git", "status", "--porcelain", *versioned],
         capture_output=True, text=True
     ).stdout.strip()
     if dirty and not args.dry_run:
-        sys.exit(f"ERROR: {INIT_FILE.name} has uncommitted changes. Commit or stash first.")
+        sys.exit("ERROR: versioned files have uncommitted changes. Commit or stash first.")
 
     text = INIT_FILE.read_text()
     old = read_version(text)
@@ -86,10 +89,17 @@ def main() -> None:
         return
 
     INIT_FILE.write_text(write_version(text, new))
-    print(f"\nUpdated {INIT_FILE}")
+    print(f"Updated {INIT_FILE}")
+
+    pyproject_text = PYPROJECT_FILE.read_text()
+    pyproject_new, n = PYPROJECT_VERSION_RE.subn(rf'\g<1>"{new_str}"', pyproject_text)
+    if n != 1:
+        sys.exit("ERROR: Expected exactly one version match in pyproject.toml")
+    PYPROJECT_FILE.write_text(pyproject_new)
+    print(f"Updated {PYPROJECT_FILE}")
 
     print("\nCommitting and tagging:")
-    git("add", str(INIT_FILE))
+    git("add", str(INIT_FILE), str(PYPROJECT_FILE))
     git("commit", "-m", f"Bump version to {new_str}")
     git("tag", "-a", tag, "-m", f"Release {tag}")
 
