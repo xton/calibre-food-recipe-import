@@ -8,20 +8,17 @@ e-reader.
 ## How it works
 
 ```mermaid
-flowchart TD
+flowchart LR
     URL([URL]) --> fetch[Fetch HTML]
-    fetch --> jld[JSON-LD extractor]
-    fetch --> md[Microdata extractor]
-    jld -- found --> recipe
-    md -- found --> recipe
+    fetch --> jld[JSON-LD]
+    fetch --> md[Microdata]
     jld -- not found --> md
-    md -- not found --> manual[Manual entry dialog]
-    recipe{Recipe complete?}
-    manual --> recipe
-    recipe -- yes --> preview[Preview dialog]
-    recipe -- no, prefill what we have --> manual
-    preview -- confirmed --> html[Render HTML]
-    html --> convert[ebook-convert]
+    jld -- found --> preview
+    md -- found --> preview
+    md -- not found --> manual
+    preview{Complete?} -- no --> manual[Manual entry]
+    manual --> convert
+    preview -- yes --> convert[ebook-convert]
     convert --> library[(Calibre library)]
 ```
 
