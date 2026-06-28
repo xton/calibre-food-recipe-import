@@ -87,6 +87,8 @@ Structured data is read from three sources, tried in order:
 | Ingredients | JSON-LD / microdata `recipeIngredient` |
 | Instructions | JSON-LD / microdata `recipeInstructions`; falls back to hRecipe `e-instructions` block, then post-recipe `<p>` tags |
 
+> **Note:** the extraction sources above were developed against one person's bookmark list. There are doubtless other structured-data formats and site-specific patterns in the wild that aren't handled yet. PRs welcome.
+
 ## Configuration
 
 Go to **Preferences → Plugins**, find **Import Recipe**, and click
