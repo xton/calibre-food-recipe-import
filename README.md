@@ -32,7 +32,7 @@ tags.
 ## Requirements
 
 - **Calibre 5+** (the plugin uses the new-API db and PyQt5)
-- `ebook-convert` on your PATH (bundled with every Calibre install)
+- `ebook-convert` (bundled with every Calibre install; the plugin finds it automatically)
 - Internet access from the machine running Calibre (to fetch pages and cover images)
 
 ## Installation
