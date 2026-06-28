@@ -9,15 +9,12 @@ e-reader.
 
 ```mermaid
 flowchart LR
-    URL([URL]) --> fetch[Fetch HTML]
-    fetch --> jld[JSON-LD]
-    jld -- not found --> md[Microdata]
-    jld -- found --> complete
-    md -- found --> complete
-    md -- not found --> manual[Manual entry]
-    complete{Complete?} -- no --> manual
-    manual --> convert
+    URL([URL]) --> scrape[Scrape metadata]
+    scrape -- recipe found --> complete{Complete?}
+    scrape -- not found --> manual[Manual entry]
+    complete -- no --> manual
     complete -- yes --> convert[ebook-convert]
+    manual --> convert
     convert --> library[(Calibre library)]
 ```
 
