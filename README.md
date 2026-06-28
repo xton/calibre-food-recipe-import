@@ -9,16 +9,25 @@ e-reader.
 
 ```
 URL ──urllib──▶ raw HTML
-             ──JSON-LD extractor──▶ Schema.org Recipe object
-             ──HTML renderer──▶ recipe.html  (ingredients aside + numbered steps)
-             ──ebook-convert──▶ recipe.epub
-             ──Calibre internal API──▶ library entry
+             ──JSON-LD extractor──▶ Schema.org Recipe object  ─┐
+             ──microdata extractor──▶ Schema.org Recipe object ─┤──▶ recipe.html
+             ──(manual entry dialog if incomplete)─────────────┘      │
+                                                                 ebook-convert
+                                                                       │
+                                                                 library entry
 ```
 
-Extraction reads the `application/ld+json` structured-data block that most
-modern recipe blogs embed (Schema.org `Recipe` type). Sites that don't publish
-structured data will produce a clear error message rather than silently adding
-a blank book.
+Extraction tries Schema.org structured data in two formats:
+
+1. **JSON-LD** (`<script type="application/ld+json">`) — used by most modern recipe sites
+2. **Microdata** (`itemscope`/`itemprop`) — used by WordPress Jetpack and others;
+   also detects the hRecipe `e-instructions` class for sites that omit `itemprop`
+   on their directions block
+
+If neither format is found, or if ingredients or instructions are empty after
+extraction, a **manual entry dialog** opens pre-filled with whatever metadata
+(title, description, cover image) could be pulled from the page's Open Graph
+tags.
 
 ## Requirements
 
@@ -48,31 +57,76 @@ a blank book.
 2. Paste a recipe URL into the first text field. Click **+ Add URL** for
    additional recipes.
 3. Choose your duplicate policy (ask / skip / replace).
-4. Click **Import**. Progress is shown in the log area.
-5. New books appear in your library immediately after import.
+4. Click **Import**. A **preview dialog** appears for each recipe showing the
+   rendered title, metadata, ingredients, and instructions — confirm or cancel
+   before it's added to the library.
+5. If no structured data is found, or if ingredients or instructions are
+   missing, a **manual entry dialog** opens instead. It is pre-filled with
+   the page title and any fields that were extracted; paste the missing text
+   (one item per line) and click **Import**.
+6. New books appear in your library immediately after import.
 
 ## What gets imported
 
 | Field | Source |
 |---|---|
-| Title | `name` |
-| Author | `author.name` |
+| Title | `name` from structured data |
+| Author | Configurable default (see Preferences) |
 | Tags | `recipeCategory`, `recipeCuisine`, `keywords` |
 | Comments | `description` + source URL |
-| Cover | `image` (downloaded) |
+| Cover | `image` (downloaded; shown as Calibre thumbnail only, not in book body) |
 | Ingredients | `recipeIngredient` |
-| Instructions | `recipeInstructions` |
+| Instructions | `recipeInstructions` / `e-instructions` block / post-recipe paragraphs |
+
+## Configuration
+
+Go to **Preferences → Plugins**, find **Import Recipe**, and click
+**Customize plugin**.
+
+| Setting | Default | Description |
+|---|---|---|
+| Default author | `Recipes` | Author applied to every imported book, regardless of what the recipe page lists |
 
 ## Limitations
 
-- Sites that don't embed Schema.org `Recipe` JSON-LD will fail gracefully with
-  an error message.
-- Some sites block automated fetching (Cloudflare, login walls). The error
-  message will describe the HTTP status.
-- The plugin does not bypass paywalls or bot-detection; it behaves like a
-  normal browser request.
+- Sites that require JavaScript execution (Cloudflare bot challenges, Vercel
+  security checkpoints) cannot be fetched. The error message will describe the
+  HTTP status, and the manual entry dialog will open so you can paste the recipe
+  text yourself.
+- The plugin does not bypass paywalls or login walls; it behaves like a normal
+  browser request.
+- Some sites block `urllib` requests by user-agent. The plugin sends a standard
+  Chrome user-agent string but cannot run JavaScript.
 
 ## Development
 
-All plugin source lives in `calibre_plugin/`. Run `python build.py` to repack
-the zip after any change, then reinstall via Preferences → Plugins.
+All plugin source lives in `calibre_plugin/`. Tests live in `tests/`.
+
+```bash
+python -m pytest tests/ -q   # run the test suite
+python build.py              # build dist/import_recipe.zip for release
+```
+
+On macOS with Calibre installed in `/Applications`:
+
+```bash
+make reload   # install plugin, kill Calibre, relaunch
+make test     # run the test suite
+make dist     # build the release zip
+```
+
+`make reload` uses `calibre-customize -b calibre_plugin` (no zip needed), then
+kills and restarts the app.
+
+### Previewing extraction without Calibre
+
+`preview_recipe.py` runs the same extraction and rendering code as the plugin
+and writes the result to a local HTML file — no Calibre installation required:
+
+```bash
+python preview_recipe.py https://example.com/chocolate-cake
+open recipe.html          # macOS
+```
+
+Use this to quickly check whether a site's structured data is readable before
+importing, or to inspect the rendered layout.
