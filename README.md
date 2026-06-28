@@ -71,6 +71,12 @@ tags.
 
 ## What gets imported
 
+Structured data is read from three sources, tried in order:
+
+- **[Schema.org Recipe — JSON-LD](https://schema.org/Recipe)** (`<script type="application/ld+json">`) — the most common format on modern recipe sites; recipe data is embedded as a separate JSON blob in the page `<head>`
+- **[Schema.org Recipe — Microdata](https://schema.org/Recipe)** (`itemscope`/`itemprop` attributes) — an older format where structured data is annotated directly on the visible HTML elements; used by WordPress Jetpack and others. Also recognises the [hRecipe](https://microformats.org/wiki/hrecipe) `e-instructions` class for sites that omit `itemprop` on their directions block
+- **[Open Graph](https://ogp.me)** (`og:title`, `og:description`, `og:image`) — social-sharing metadata present on almost every page; used as fallback when structured recipe data is absent or incomplete
+
 | Field | Source |
 |---|---|
 | Title | JSON-LD / microdata `name`; falls back to Open Graph `og:title` |
