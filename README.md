@@ -73,13 +73,13 @@ tags.
 
 | Field | Source |
 |---|---|
-| Title | `name` from structured data |
+| Title | JSON-LD / microdata `name`; falls back to Open Graph `og:title` |
 | Author | Configurable default (see Preferences) |
-| Tags | `recipeCategory`, `recipeCuisine`, `keywords` |
-| Comments | `description` + source URL |
-| Cover | `image` (downloaded; shown as Calibre thumbnail only, not in book body) |
-| Ingredients | `recipeIngredient` |
-| Instructions | `recipeInstructions` / `e-instructions` block / post-recipe paragraphs |
+| Tags | JSON-LD / microdata `recipeCategory`, `recipeCuisine`, `keywords` |
+| Comments | JSON-LD / microdata `description` + source URL; falls back to `og:description` |
+| Cover | JSON-LD / microdata `image`; falls back to `og:image` (Calibre thumbnail only, not in book body) |
+| Ingredients | JSON-LD / microdata `recipeIngredient` |
+| Instructions | JSON-LD / microdata `recipeInstructions`; falls back to hRecipe `e-instructions` block, then post-recipe `<p>` tags |
 
 ## Configuration
 
