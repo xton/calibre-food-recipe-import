@@ -80,7 +80,7 @@ Structured data is read from three sources, tried in order:
 | Field | Source |
 |---|---|
 | Title | JSON-LD / microdata `name`; falls back to Open Graph `og:title` |
-| Author | Configurable default (see Preferences) |
+| Author | Author override if set (see Preferences), otherwise JSON-LD / microdata `author`, otherwise `og:site_name` / domain |
 | Tags | JSON-LD / microdata `recipeCategory`, `recipeCuisine`, `keywords` |
 | Comments | JSON-LD / microdata `description` + source URL; falls back to `og:description` |
 | Cover | JSON-LD / microdata `image`; falls back to `og:image` (Calibre thumbnail only, not in book body) |
@@ -94,7 +94,7 @@ Go to **Preferences → Plugins**, find **Import Recipe**, and click
 
 | Setting | Default | Description |
 |---|---|---|
-| Default author | `Recipes` | Author applied to every imported book, regardless of what the recipe page lists |
+| Author override | `Recipes` | When set, all imported books are filed under this author in Calibre, and the recipe's own author is appended to the title (e.g. "Blueberry Pancakes by Smitten Kitchen"). Leave blank to use the recipe's own author directly. |
 
 ## Limitations
 

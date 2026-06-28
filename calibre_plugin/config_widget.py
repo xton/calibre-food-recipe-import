@@ -7,11 +7,11 @@ class ConfigWidget(QWidget):
         from calibre_plugins.import_recipe.config import prefs
 
         layout = QFormLayout(self)
-        self._author_edit = QLineEdit(prefs['default_author'])
+        self._author_edit = QLineEdit(prefs['author_override'])
         self._author_edit.setMinimumWidth(200)
-        layout.addRow(QLabel('Default author for imported recipes:'), self._author_edit)
+        self._author_edit.setPlaceholderText('leave blank to use each recipe\'s own author')
+        layout.addRow(QLabel('Author override:'), self._author_edit)
 
     def commit(self):
         from calibre_plugins.import_recipe.config import prefs
-        value = self._author_edit.text().strip()
-        prefs['default_author'] = value if value else 'Recipes'
+        prefs['author_override'] = self._author_edit.text().strip()

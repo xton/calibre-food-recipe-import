@@ -3,6 +3,7 @@ Core import logic: recipe → HTML → EPUB → Calibre library entry.
 Runs in a worker thread; communicates back via Qt signals.
 """
 
+import dataclasses
 import os
 import shutil
 import subprocess
@@ -130,6 +131,15 @@ class RecipeImporter(QObject):
         if recipe is None:
             return ImportResult(url, skipped=True, preview_cancelled=True)
 
+        # Determine author and apply override / title attribution
+        page_author = recipe.author or recipe.site_name or 'Unknown'
+        override = prefs['author_override']
+        if override:
+            mi_authors = [override]
+            recipe = dataclasses.replace(recipe, title=f"{recipe.title} by {page_author}")
+        else:
+            mi_authors = [page_author]
+
         if recipe.ingredients and recipe.instructions:
             self.progress.emit(f"Previewing '{recipe.title}' — waiting for confirmation …")
             if not self._show_preview(recipe):
@@ -151,7 +161,7 @@ class RecipeImporter(QObject):
                 self.db.remove_books(existing_ids)
 
         try:
-            book_id = self._convert_and_add(recipe)
+            book_id = self._convert_and_add(recipe, mi_authors)
         except Exception as exc:
             return ImportResult(url, recipe=recipe, error=str(exc))
 
@@ -192,7 +202,7 @@ class RecipeImporter(QObject):
             return candidate
         return "ebook-convert"  # let subprocess raise a clear error
 
-    def _convert_and_add(self, recipe: Recipe) -> int:
+    def _convert_and_add(self, recipe: Recipe, mi_authors: list[str]) -> int:
         with tempfile.TemporaryDirectory(prefix="calibre_recipe_") as tmpdir:
             html_path = os.path.join(tmpdir, "recipe.html")
             epub_path = os.path.join(tmpdir, "recipe.epub")
@@ -242,7 +252,7 @@ class RecipeImporter(QObject):
 
             # Build Calibre Metadata
             mi = Metadata(recipe.title)
-            mi.authors = [prefs['default_author']]
+            mi.authors = mi_authors
             if recipe.tags:
                 mi.tags = recipe.tags
             comments = f'<p>Source: <a href="{recipe.source_url}">{recipe.source_url}</a></p>'

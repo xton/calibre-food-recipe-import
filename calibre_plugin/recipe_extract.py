@@ -6,9 +6,10 @@ No external dependencies — uses only Python stdlib.
 import html as _html
 import json
 import re
+import urllib.parse
 import urllib.request
 import urllib.error
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace as _replace
 from html.parser import HTMLParser as _HTMLParser
 
 
@@ -355,6 +356,7 @@ class Recipe:
     title: str
     description: str = ""
     author: str = ""
+    site_name: str = ""
     image_url: str = ""
     yields: str = ""
     total_time: str = ""
@@ -414,15 +416,25 @@ def _recipe_from_microdata(raw: dict, source_url: str) -> "Recipe":
     )
 
 
+def _site_name(html_text: str, url: str) -> str:
+    """Best available site name: og:site_name, then the URL's hostname."""
+    og = _og_value(html_text, "site_name")
+    if og:
+        return og
+    host = urllib.parse.urlparse(url).netloc
+    return host[4:] if host.startswith("www.") else host
+
+
 def scrape(url: str) -> Recipe:
     """Fetch *url* and return a Recipe, or raise RecipeExtractionError."""
-    html = fetch_html(url)
-    raw = extract_recipe_jsonld(html)
+    html_text = fetch_html(url)
+    site = _site_name(html_text, url)
+    raw = extract_recipe_jsonld(html_text)
     if raw is not None:
-        return Recipe.from_jsonld(raw, url)
-    raw = extract_recipe_microdata(html)
+        return _replace(Recipe.from_jsonld(raw, url), site_name=site)
+    raw = extract_recipe_microdata(html_text)
     if raw is not None:
-        return _recipe_from_microdata(raw, url)
+        return _replace(_recipe_from_microdata(raw, url), site_name=site)
     raise RecipeExtractionError(
         f"No Schema.org Recipe found in the page at {url}.\n"
         "The site may not embed structured data, or may block automated fetching."
@@ -461,4 +473,6 @@ def scrape_partial(url: str) -> Recipe:
     title = _og_value(html_text, "title") or _page_title(html_text) or url
     description = _og_value(html_text, "description") or ""
     image_url = _og_value(html_text, "image") or ""
-    return Recipe(source_url=url, title=title, description=description, image_url=image_url)
+    site = _site_name(html_text, url)
+    return Recipe(source_url=url, title=title, description=description,
+                  image_url=image_url, site_name=site)
