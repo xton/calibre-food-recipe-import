@@ -88,14 +88,10 @@ Go to **Preferences → Plugins**, find **Import Recipe**, and click
 
 ## Limitations
 
-- Sites that require JavaScript execution (Cloudflare bot challenges, Vercel
-  security checkpoints) cannot be fetched. The error message will describe the
-  HTTP status, and the manual entry dialog will open so you can paste the recipe
-  text yourself.
-- The plugin does not bypass paywalls or login walls; it behaves like a normal
-  browser request.
-- Some sites block `urllib` requests by user-agent. The plugin sends a standard
-  Chrome user-agent string but cannot run JavaScript.
+- Sites that require JavaScript execution (Cloudflare, Vercel bot challenges,
+  login walls) cannot be fetched. The manual entry dialog will open so you can
+  paste the recipe text yourself.
+- The plugin does not bypass paywalls; it behaves like a normal browser request.
 
 ## Development
 
