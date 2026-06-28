@@ -16,17 +16,7 @@ flowchart LR
     convert --> library[(Calibre library)]
 ```
 
-Extraction tries Schema.org structured data in two formats:
-
-1. **JSON-LD** (`<script type="application/ld+json">`) — used by most modern recipe sites
-2. **Microdata** (`itemscope`/`itemprop`) — used by WordPress Jetpack and others;
-   also detects the hRecipe `e-instructions` class for sites that omit `itemprop`
-   on their directions block
-
-If neither format is found, or if ingredients or instructions are empty after
-extraction, a **manual entry dialog** opens pre-filled with whatever metadata
-(title, description, cover image) could be pulled from the page's Open Graph
-tags.
+The scrape step tries several [structured data sources](#what-gets-imported) in order. If none yield a complete recipe, a manual entry dialog opens pre-filled with whatever could be extracted.
 
 ## Requirements
 
