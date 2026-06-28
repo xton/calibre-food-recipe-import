@@ -7,14 +7,22 @@ e-reader.
 
 ## How it works
 
-```
-URL ──urllib──▶ raw HTML
-             ──JSON-LD extractor──▶ Schema.org Recipe object  ─┐
-             ──microdata extractor──▶ Schema.org Recipe object ─┤──▶ recipe.html
-             ──(manual entry dialog if incomplete)─────────────┘      │
-                                                                 ebook-convert
-                                                                       │
-                                                                 library entry
+```mermaid
+flowchart TD
+    URL([URL]) --> fetch[Fetch HTML]
+    fetch --> jld[JSON-LD extractor]
+    fetch --> md[Microdata extractor]
+    jld -- found --> recipe
+    md -- found --> recipe
+    jld -- not found --> md
+    md -- not found --> manual[Manual entry dialog]
+    recipe{Recipe complete?}
+    manual --> recipe
+    recipe -- yes --> preview[Preview dialog]
+    recipe -- no, prefill what we have --> manual
+    preview -- confirmed --> html[Render HTML]
+    html --> convert[ebook-convert]
+    convert --> library[(Calibre library)]
 ```
 
 Extraction tries Schema.org structured data in two formats:
