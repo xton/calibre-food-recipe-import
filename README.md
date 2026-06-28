@@ -11,14 +11,13 @@ e-reader.
 flowchart LR
     URL([URL]) --> fetch[Fetch HTML]
     fetch --> jld[JSON-LD]
-    fetch --> md[Microdata]
-    jld -- not found --> md
-    jld -- found --> preview
-    md -- found --> preview
-    md -- not found --> manual
-    preview{Complete?} -- no --> manual[Manual entry]
+    jld -- not found --> md[Microdata]
+    jld -- found --> complete
+    md -- found --> complete
+    md -- not found --> manual[Manual entry]
+    complete{Complete?} -- no --> manual
     manual --> convert
-    preview -- yes --> convert[ebook-convert]
+    complete -- yes --> convert[ebook-convert]
     convert --> library[(Calibre library)]
 ```
 
