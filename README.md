@@ -37,14 +37,12 @@ The scrape step tries several [structured data sources](#what-gets-imported) in 
 
 ## Installation
 
-1. Build the plugin zip:
-   ```
-   python build.py
-   ```
-   This creates `dist/import_recipe.zip`.
+1. Download `import_recipe.zip` from the
+   [latest release](https://github.com/xton/calibre-food-recipe-import/releases/latest).
+   (Or build it yourself: `python build.py` — see [Development](#development).)
 
 2. In Calibre: **Preferences → Plugins → Load plugin from file**,
-   select `dist/import_recipe.zip`, click **Yes** on the security prompt.
+   select the zip, click **Yes** on the security prompt.
 
 3. Restart Calibre.
 
