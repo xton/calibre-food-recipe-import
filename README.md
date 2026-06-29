@@ -1,9 +1,21 @@
 # Import Recipe — Calibre Plugin
 
+## Why
+
+An e-reader is a surprisingly good recipe companion: the page can stay visible when
+the device sleeps, so no more unlocking it with floury hands. And without
+notifications or clutter, it's easier to focus on the recipe itself.
+
+This plugin imports recipes from the web into [Calibre](https://calibre-ebook.com)
+as clean EPUBs — stripped of everything except the title, timing, ingredients,
+and instructions — ready to send to your e-reader. The author override setting
+lets all your recipes appear together in a single group in your e-reader's library.
+
+## What it does
+
 Adds an **Import Recipe** toolbar button to Calibre. Click it, paste one or
-more recipe blog URLs, and each recipe is fetched, stripped of ads and clutter,
-converted to a clean EPUB, and added to your library — ready to send to your
-e-reader.
+more recipe blog URLs, and each recipe is fetched, converted to a clean EPUB,
+and added to your library.
 
 ## How it works
 
