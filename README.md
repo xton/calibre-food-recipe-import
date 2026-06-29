@@ -104,6 +104,10 @@ Go to **Preferences → Plugins**, find **Import Recipe**, and click
 
 ## Development
 
+The dev tooling (build script, install helper) is macOS-only — apologies, that's
+just what's available here. The plugin itself should work on any platform Calibre
+supports. PRs to add Linux and Windows dev support are very welcome.
+
 All plugin source lives in `calibre_plugin/`. Tests live in `tests/`.
 
 ```bash
